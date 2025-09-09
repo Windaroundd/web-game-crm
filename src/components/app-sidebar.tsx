@@ -2,21 +2,19 @@
 
 import * as React from "react"
 import {
-  IconCamera,
   IconChartBar,
+  IconCloud,
   IconDashboard,
   IconDatabase,
-  IconFileAi,
+  IconDeviceGamepad2,
   IconFileDescription,
-  IconFileWord,
-  IconFolder,
   IconHelp,
   IconInnerShadowTop,
-  IconListDetails,
+  IconLink,
   IconReport,
   IconSearch,
   IconSettings,
-  IconUsers,
+  IconWorld,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -35,81 +33,50 @@ import {
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Admin",
+    email: "admin@example.com",
+    avatar: "/avatars/admin.jpg",
   },
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/admin",
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: IconListDetails,
+      title: "Websites",
+      url: "/admin/websites",
+      icon: IconWorld,
     },
     {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
+      title: "Games",
+      url: "/admin/games",
+      icon: IconDeviceGamepad2,
     },
     {
-      title: "Projects",
-      url: "#",
-      icon: IconFolder,
+      title: "Cloudflare",
+      url: "/admin/cloudflare",
+      icon: IconCloud,
     },
     {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
+      title: "Textlinks",
+      url: "/admin/textlinks",
+      icon: IconLink,
     },
   ],
-  navClouds: [
+  navManagement: [
     {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
+      title: "API Documentation",
       icon: IconFileDescription,
-      url: "#",
+      url: "/admin/api-docs",
       items: [
         {
-          title: "Active Proposals",
-          url: "#",
+          title: "Public APIs",
+          url: "/admin/api-docs/public",
         },
         {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
+          title: "Rate Limits",
+          url: "/admin/api-docs/limits",
         },
       ],
     },
@@ -133,19 +100,19 @@ const data = {
   ],
   documents: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
+      name: "Analytics",
+      url: "/admin/analytics",
+      icon: IconChartBar,
     },
     {
       name: "Reports",
-      url: "#",
+      url: "/admin/reports",
       icon: IconReport,
     },
     {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
+      name: "Audit Logs",
+      url: "/admin/logs",
+      icon: IconDatabase,
     },
   ],
 }
@@ -160,9 +127,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <a href="/admin">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">CMS Admin</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
