@@ -128,7 +128,7 @@ export function validateFormData<T>(schema: z.ZodSchema<T>, data: unknown):
   }
   
   const errors: Record<string, string[]> = {}
-  result.error.errors.forEach((error) => {
+  result.error.issues.forEach((error) => {
     const path = error.path.join('.')
     if (!errors[path]) {
       errors[path] = []

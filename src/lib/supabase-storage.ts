@@ -48,8 +48,8 @@ export async function uploadToSupabase(
 
 // Delete file from Supabase Storage
 export async function deleteFromSupabase(
-  bucket: string,
-  path: string
+  _bucket: string,
+  _path: string
 ): Promise<{ success: boolean; error?: string }> {
   
   // Mock delete delay

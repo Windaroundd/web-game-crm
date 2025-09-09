@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
 import { Badge } from "@/components/ui/badge";
-import { IconDeviceGamepad2, IconSave, IconEye, IconX } from "@tabler/icons-react";
+import { IconDeviceGamepad2, IconCheck, IconEye, IconX } from "@tabler/icons-react";
 
 interface GameFormData {
   url: string;
@@ -215,7 +215,7 @@ export function GameForm({
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>
-            <IconSave className="h-4 w-4 mr-2" />
+            <IconCheck className="h-4 w-4 mr-2" />
             {isLoading ? "Saving..." : "Save Game"}
           </Button>
         </div>

@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  IconPlus,
   IconSearch,
   IconFilter,
   IconDownload,
@@ -53,6 +52,22 @@ import {
 import { AddGameDialog } from "@/components/add-game-dialog";
 
 // Mock data - replace with actual data fetching
+interface Game {
+  id: number;
+  url: string;
+  title: string;
+  desc: string;
+  category: string;
+  game_url: string;
+  game_icon: string;
+  game_thumb: string;
+  game_developer: string;
+  game_publish_year: number;
+  game_controls: string;
+  game: string;
+  isFeatured: boolean;
+  createdAt: string;
+}
 const mockGames = [
   {
     id: 1,
@@ -186,9 +201,20 @@ export default function GamesPage() {
     game: string;
     isFeatured: boolean;
   }) => {
-    const game = {
+    const game: Game = {
       id: Math.max(...games.map((g) => g.id)) + 1,
-      ...newGame,
+      url: newGame.url,
+      title: newGame.title,
+      desc: newGame.desc,
+      category: newGame.category,
+      game_url: newGame.game_url,
+      game_icon: newGame.game_icon || "",
+      game_thumb: newGame.game_thumb || "",
+      game_developer: newGame.game_developer || "",
+      game_publish_year: newGame.game_publish_year || new Date().getFullYear(),
+      game_controls: newGame.game_controls,
+      game: newGame.game,
+      isFeatured: newGame.isFeatured,
       createdAt: new Date().toISOString().split("T")[0],
     };
     setGames([...games, game]);

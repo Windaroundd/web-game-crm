@@ -10,12 +10,11 @@ import {
   IconUpload, 
   IconX, 
   IconFile, 
-  IconPhoto,
   IconCheck,
   IconAlertCircle,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { uploadToSupabase, validateFile, type UploadOptions } from "@/lib/supabase-storage";
+import { uploadToSupabase, validateFile } from "@/lib/supabase-storage";
 
 interface FileUploadProps {
   accept?: string;
@@ -176,7 +175,7 @@ export function FileUpload({
       toast.success(`${uploadedFile.file.name} uploaded successfully`);
       return result.url;
       
-    } catch (error) {
+    } catch (error: unknown) {
       setUploadedFiles(prev => 
         prev.map((file, i) => 
           i === index 
