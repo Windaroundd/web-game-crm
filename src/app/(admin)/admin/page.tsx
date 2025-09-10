@@ -1,6 +1,17 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IconWorld, IconDeviceGamepad2, IconCloud, IconLink } from "@tabler/icons-react";
+import {
+  IconWorld,
+  IconDeviceGamepad2,
+  IconCloud,
+  IconLink,
+} from "@tabler/icons-react";
 
 export default function AdminDashboard() {
   return (
@@ -21,7 +32,9 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">1,234</div>
             <p className="text-xs text-muted-foreground">
-              <Badge variant="secondary" className="mr-1">+20</Badge>
+              <Badge variant="secondary" className="mr-1">
+                +20
+              </Badge>
               from last month
             </p>
           </CardContent>
@@ -35,7 +48,9 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">567</div>
             <p className="text-xs text-muted-foreground">
-              <Badge variant="secondary" className="mr-1">+12</Badge>
+              <Badge variant="secondary" className="mr-1">
+                +12
+              </Badge>
               from last month
             </p>
           </CardContent>
@@ -48,9 +63,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              Active accounts
-            </p>
+            <p className="text-xs text-muted-foreground">Active accounts</p>
           </CardContent>
         </Card>
 
@@ -62,7 +75,9 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">2,890</div>
             <p className="text-xs text-muted-foreground">
-              <Badge variant="secondary" className="mr-1">+145</Badge>
+              <Badge variant="secondary" className="mr-1">
+                +145
+              </Badge>
               from last month
             </p>
           </CardContent>
@@ -78,10 +93,26 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="space-y-4">
               {[
-                { action: "Added website", item: "example.com", time: "2 minutes ago" },
-                { action: "Purged cache", item: "Cloudflare Zone", time: "15 minutes ago" },
-                { action: "Updated game", item: "Retro Bowl", time: "1 hour ago" },
-                { action: "Added textlinks", item: "5 new links", time: "2 hours ago" },
+                {
+                  action: "Added website",
+                  item: "example.com",
+                  time: "2 minutes ago",
+                },
+                {
+                  action: "Purged cache",
+                  item: "Cloudflare Zone",
+                  time: "15 minutes ago",
+                },
+                {
+                  action: "Updated game",
+                  item: "Retro Bowl",
+                  time: "1 hour ago",
+                },
+                {
+                  action: "Added textlinks",
+                  item: "5 new links",
+                  time: "2 hours ago",
+                },
               ].map((activity, i) => (
                 <div key={i} className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-blue-500 rounded-full" />

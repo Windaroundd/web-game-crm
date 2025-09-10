@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   IconChartBar,
   IconCloud,
@@ -8,6 +8,7 @@ import {
   IconDatabase,
   IconDeviceGamepad2,
   IconFileDescription,
+  IconFileDots,
   IconHelp,
   IconInnerShadowTop,
   IconLink,
@@ -15,12 +16,12 @@ import {
   IconSearch,
   IconSettings,
   IconWorld,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
-import { NavDocuments } from "@/components/nav-documents"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavDocuments } from "@/components/nav-documents";
+import { NavMain } from "@/components/nav-main";
+import { NavSecondary } from "@/components/nav-secondary";
+import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -38,11 +39,11 @@ const data = {
     avatar: "/avatars/admin.jpg",
   },
   navMain: [
-    {
-      title: "Dashboard",
-      url: "/admin",
-      icon: IconDashboard,
-    },
+    // {
+    //   title: "Dashboard",
+    //   url: "/admin",
+    //   icon: IconDashboard,
+    // },
     {
       title: "Websites",
       url: "/admin/websites",
@@ -63,59 +64,30 @@ const data = {
       url: "/admin/textlinks",
       icon: IconLink,
     },
-  ],
-  navManagement: [
     {
-      title: "API Documentation",
-      icon: IconFileDescription,
+      title: "API Docs",
       url: "/admin/api-docs",
-      items: [
-        {
-          title: "Public APIs",
-          url: "/admin/api-docs/public",
-        },
-        {
-          title: "Rate Limits",
-          url: "/admin/api-docs/limits",
-        },
-      ],
+      icon: IconFileDescription,
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
+    // {
+    //   title: "Settings",
+    //   url: "#",
+    //   icon: IconSettings,
+    // },
+    // {
+    //   title: "Get Help",
+    //   url: "#",
+    //   icon: IconHelp,
+    // },
+    // {
+    //   title: "Search",
+    //   url: "#",
+    //   icon: IconSearch,
+    // },
   ],
-  documents: [
-    {
-      name: "Analytics",
-      url: "/admin/analytics",
-      icon: IconChartBar,
-    },
-    {
-      name: "Reports",
-      url: "/admin/reports",
-      icon: IconReport,
-    },
-    {
-      name: "Audit Logs",
-      url: "/admin/logs",
-      icon: IconDatabase,
-    },
-  ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -129,7 +101,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="/admin">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">CMS Admin</span>
+                <span className="text-base font-semibold">
+                  Website & Game Management System
+                </span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -137,12 +111,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

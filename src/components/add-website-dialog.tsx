@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconPlus } from "@tabler/icons-react";
 
-const categories = ["blog", "tech", "gaming", "news", "entertainment"];
+const categories = ["blog", "tech", "gaming", "news", "entertainment", "sports", "health"];
 
 interface AddWebsiteDialogProps {
   onAddWebsite: (website: {
@@ -30,10 +30,10 @@ interface AddWebsiteDialogProps {
     isIndex: boolean;
     isFeatured: boolean;
     traffic: number;
-    domain_rating: number;
+    domainRating: number;
     backlinks: number;
-    referring_domains: number;
-    is_wp: boolean;
+    referringDomains: number;
+    isWP: boolean;
   }) => void;
 }
 
@@ -48,10 +48,10 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
     isIndex: true,
     isFeatured: false,
     traffic: 0,
-    domain_rating: 0,
+    domainRating: 0,
     backlinks: 0,
-    referring_domains: 0,
-    is_wp: false,
+    referringDomains: 0,
+    isWP: false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,10 +70,10 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
       isIndex: true,
       isFeatured: false,
       traffic: 0,
-      domain_rating: 0,
+      domainRating: 0,
       backlinks: 0,
-      referring_domains: 0,
-      is_wp: false,
+      referringDomains: 0,
+      isWP: false,
     });
     setOpen(false);
   };
@@ -161,15 +161,15 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="domain_rating">Domain Rating</Label>
+              <Label htmlFor="domainRating">Domain Rating</Label>
               <Input
-                id="domain_rating"
+                id="domainRating"
                 type="number"
                 min="0"
                 max="100"
                 placeholder="0"
-                value={formData.domain_rating}
-                onChange={(e) => setFormData({ ...formData, domain_rating: parseInt(e.target.value) || 0 })}
+                value={formData.domainRating}
+                onChange={(e) => setFormData({ ...formData, domainRating: parseInt(e.target.value) || 0 })}
               />
             </div>
             
@@ -186,14 +186,14 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="referring_domains">Referring Domains</Label>
+              <Label htmlFor="referringDomains">Referring Domains</Label>
               <Input
-                id="referring_domains"
+                id="referringDomains"
                 type="number"
                 min="0"
                 placeholder="0"
-                value={formData.referring_domains}
-                onChange={(e) => setFormData({ ...formData, referring_domains: parseInt(e.target.value) || 0 })}
+                value={formData.referringDomains}
+                onChange={(e) => setFormData({ ...formData, referringDomains: parseInt(e.target.value) || 0 })}
               />
             </div>
           </div>
@@ -235,11 +235,11 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
             
             <div className="flex items-center space-x-2">
               <Checkbox
-                id="is_wp"
-                checked={formData.is_wp}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_wp: !!checked })}
+                id="isWP"
+                checked={formData.isWP}
+                onCheckedChange={(checked) => setFormData({ ...formData, isWP: !!checked })}
               />
-              <Label htmlFor="is_wp" className="text-sm font-normal">
+              <Label htmlFor="isWP" className="text-sm font-normal">
                 WordPress site
               </Label>
             </div>
