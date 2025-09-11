@@ -4,6 +4,7 @@ import { useState } from "react";
 import { GalleryVerticalEnd } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   type LoginFormData,
   validateFormData,
 } from "@/lib/validations";
+import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm({
   className,
@@ -25,6 +27,8 @@ export function LoginForm({
     password: "",
   });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const router = useRouter();
+  const supabase = createClient();
 
   const handleInputChange =
     (field: keyof LoginFormData) =>
@@ -58,16 +62,32 @@ export function LoginForm({
     setErrors({});
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-      // Mock successful login
-      toast.success("Login successful! Redirecting...");
+      if (error) {
+        throw error;
+      }
 
-      // Redirect to admin dashboard
-      window.location.href = "/admin";
+      if (data.user) {
+        toast.success("Login successful! Redirecting...");
+
+        // Get redirect URL from query params or default to admin
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectTo = urlParams.get("redirectTo") || "/admin";
+
+        router.push(redirectTo);
+        router.refresh();
+      }
     } catch (error: unknown) {
-      toast.error("Login failed. Please check your credentials.");
+      console.error("Login error:", error);
+      toast.error(
+        (error as Error).message ||
+          "Login failed. Please check your credentials."
+      );
     } finally {
       setIsLoading(false);
     }

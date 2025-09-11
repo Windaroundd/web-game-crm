@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import { getUserRole, hasRole } from "@/lib/auth";
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createClient(request);
 
   // Refresh session if expired - required for Server Components
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
   const protectedRoutes = ["/admin", "/dashboard"];
@@ -16,15 +17,32 @@ export async function middleware(request: NextRequest) {
   );
 
   // If accessing a protected route without a session, redirect to login
-  if (isProtectedRoute && !session) {
+  if (isProtectedRoute && !user) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // If accessing login page with a valid session, redirect to admin
-  if (request.nextUrl.pathname === "/login" && session) {
+  if (request.nextUrl.pathname === "/login" && user) {
     return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
+  // Role-based access control for admin routes
+  if (user && request.nextUrl.pathname.startsWith("/admin")) {
+    const userRole = getUserRole(user);
+
+    // Check if user has at least viewer role
+    if (
+      !hasRole(
+        { id: user.id, email: user.email || "", role: userRole },
+        "viewer"
+      )
+    ) {
+      return NextResponse.redirect(
+        new URL("/login?error=insufficient_permissions", request.url)
+      );
+    }
   }
 
   return response;
