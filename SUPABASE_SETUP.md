@@ -1,225 +1,166 @@
 # Supabase Setup Guide
 
-This guide will help you set up Supabase integration for the Website & Game Management System.
+This guide will help you set up Supabase for your CMS project.
 
-## Prerequisites
+## 1. Create a Supabase Project
 
-- Node.js 18+ installed
-- A Supabase account (free tier is sufficient)
+1. Go to [supabase.com](https://supabase.com) and sign up/login
+2. Click "New Project"
+3. Choose your organization
+4. Enter project details:
+   - **Name**: `cms-project` (or your preferred name)
+   - **Database Password**: Generate a strong password
+   - **Region**: Choose the closest region to your users
+5. Click "Create new project"
 
-## Step 1: Create a Supabase Project
+## 2. Get Your Project Credentials
 
-1. Go to [Supabase](https://supabase.com) and sign in
-2. Create a new project
-3. Choose a database password and region
-4. Wait for the project to be created (usually takes 2-3 minutes)
+Once your project is created:
 
-## Step 2: Get Your Credentials
-
-1. In your Supabase project dashboard, go to **Settings** → **API**
+1. Go to **Settings** → **API**
 2. Copy the following values:
-   - **Project URL** (looks like `https://your-project-ref.supabase.co`)
+   - **Project URL** (looks like: `https://your-project-id.supabase.co`)
    - **anon public** key (starts with `eyJ...`)
-   - **service_role** key (starts with `eyJ...`) - **Keep this secret!**
+   - **service_role** key (starts with `eyJ...`)
 
-## Step 3: Configure Environment Variables
+## 3. Set Up Environment Variables
 
-1. Copy the `.env.example` file to `.env.local`:
-   ```bash
-   cp .env.example .env.local
-   ```
+Create a `.env.local` file in your project root with:
 
-2. Edit `.env.local` and replace the placeholder values:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_project_url_here
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-   ```
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
-## Step 4: Set Up the Database Schema
+# Optional: Sentry for error tracking
+# SENTRY_DSN=your_sentry_dsn
+```
 
-1. In your Supabase project dashboard, go to **SQL Editor**
-2. Copy the contents of `supabase-schema.sql` and paste it into the SQL editor
-3. Click **Run** to execute the schema
+**Important**: Never commit the `.env.local` file to version control!
+
+## 4. Set Up Database Schema
+
+1. Go to your Supabase project dashboard
+2. Navigate to **SQL Editor**
+3. Copy the contents of `supabase-schema.sql` and paste it into the SQL editor
+4. Click **Run** to execute the schema
 
 This will create:
-- All required tables (websites, games, cloudflare_accounts, etc.)
-- Proper indexes for performance
+
+- All required tables (websites, games, cloudflare_accounts, cloudflare_purge_logs, textlinks)
+- Indexes for performance
 - Row Level Security (RLS) policies
 - Storage buckets for file uploads
-- Sample data for testing
+- Sample data
 
-## Step 5: Configure Authentication
-
-### Email/Password Authentication (Enabled by default)
+## 5. Configure Authentication
 
 1. Go to **Authentication** → **Settings**
-2. Ensure **Enable email confirmations** is turned OFF for development
-3. Set **Site URL** to `http://localhost:3000`
-4. Add `http://localhost:3000/**` to **Redirect URLs**
+2. Configure your site URL:
+   - **Site URL**: `http://localhost:3000` (for development)
+   - **Redirect URLs**: Add `http://localhost:3000/auth/callback`
 
-### Create Your First Admin User
+For production, update these URLs to your actual domain.
 
-You can create users in two ways:
+## 6. Set Up User Roles
 
-#### Option A: Through Supabase Dashboard
+The system uses role-based access control with three roles:
+
+- **admin**: Full access to everything
+- **editor**: Can create/edit content, but cannot delete accounts/logs
+- **viewer**: Read-only access
+
+To assign roles to users:
+
 1. Go to **Authentication** → **Users**
-2. Click **Add user**
-3. Enter email and password
-4. In **User Metadata**, add:
+2. Click on a user
+3. In the **User Metadata** section, add:
    ```json
    {
-     "role": "admin",
-     "name": "Admin User"
+     "role": "admin"
    }
    ```
 
-#### Option B: Through SQL
-```sql
--- Insert a new user (replace with your details)
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  recovery_sent_at,
-  last_sign_in_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at,
-  confirmation_token,
-  email_change,
-  email_change_token_new,
-  recovery_token
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  gen_random_uuid(),
-  'authenticated',
-  'authenticated',
-  'admin@example.com', -- Replace with your email
-  crypt('yourpassword123', gen_salt('bf')), -- Replace with your password
-  now(),
-  now(),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{"role":"admin","name":"Admin User"}', -- Admin role metadata
-  now(),
-  now(),
-  '',
-  '',
-  '',
-  ''
-);
-```
+## 7. Configure Storage
 
-## Step 6: Configure Storage
+The schema automatically creates storage buckets:
 
-The schema automatically creates three storage buckets:
-- `games` - For game assets (icons, thumbnails, etc.) - **Public**
-- `avatars` - For user avatars - **Public**
-- `documents` - For documents and files - **Private**
+- `games`: For game files
+- `games-icons`: For game icons
+- `games-thumbs`: For game thumbnails
+- `avatars`: For user avatars
+- `documents`: For private documents
 
 Storage policies are automatically configured based on user roles.
 
-## Step 7: Test the Integration
+## 8. Test Your Setup
 
-1. Start the development server:
+1. Start your development server:
+
    ```bash
    npm run dev
    ```
 
-2. Navigate to `http://localhost:3000/login`
-3. Log in with the admin credentials you created
-4. You should be redirected to the admin dashboard
+2. Try to access the admin panel at `http://localhost:3000/admin`
+3. You should be redirected to the login page
+4. Create a test user account
+5. Assign the "admin" role to your user in Supabase dashboard
+6. Try logging in and accessing the admin panel
 
-## User Roles
+## 9. Production Deployment
 
-The system supports three user roles:
+When deploying to production:
 
-- **admin**: Full access to all features including user management and Cloudflare accounts
-- **editor**: Can create, read, and update content but cannot delete or manage sensitive settings
-- **viewer**: Read-only access to content
+1. Update your environment variables in your hosting platform (Vercel, etc.)
+2. Update the **Site URL** and **Redirect URLs** in Supabase Authentication settings
+3. Consider setting up custom domains for your Supabase project
 
-Roles are stored in the user's metadata and enforced through RLS policies.
+## 10. Security Checklist
 
-## API Endpoints
-
-The following API endpoints are now available:
-
-### Public APIs (No authentication required)
-- `GET /api/public/backlinks?domain=example.com` - Get textlinks for a domain
-- `GET /api/websites` - List websites (with filtering)
-- `GET /api/games` - List games (with filtering)
-
-### Admin APIs (Authentication required)
-- `POST /api/auth/login` - User authentication
-- `POST /api/auth/logout` - User logout
-- `POST /api/websites` - Create website
-- `PUT /api/websites/[id]` - Update website
-- `DELETE /api/websites/[id]` - Delete website (admin only)
-- `POST /api/games` - Create game
-- `PUT /api/games/[id]` - Update game
-- `DELETE /api/games/[id]` - Delete game (admin only)
-- `POST /api/upload` - Upload files to storage
-
-### Rate Limiting
-Public APIs include basic rate limiting (60 requests per minute per IP).
-
-## Development Tips
-
-1. **Database Changes**: If you need to modify the schema, use Supabase migrations or update the SQL file and re-run it.
-
-2. **Storage Setup**: Make sure your storage buckets have the correct policies. Check the **Storage** → **Policies** section in Supabase.
-
-3. **RLS Debugging**: If you're having permission issues, check the RLS policies in **Database** → **Tables** → select table → **RLS** tab.
-
-4. **User Role Issues**: Ensure user metadata includes the correct role. You can check/update this in **Authentication** → **Users** → select user → **Raw User Meta Data**.
-
-## Production Deployment
-
-For production deployment:
-
-1. Update environment variables with production Supabase credentials
-2. Set proper site URLs and redirect URLs in Supabase Auth settings
-3. Enable email confirmations if desired
-4. Consider setting up custom SMTP for emails
-5. Review and adjust RLS policies as needed
-6. Set up monitoring and logging
+- [ ] Environment variables are properly set
+- [ ] RLS policies are enabled on all tables
+- [ ] Service role key is only used server-side
+- [ ] User roles are properly assigned
+- [ ] Storage policies are configured
+- [ ] CORS is properly configured for public APIs
 
 ## Troubleshooting
 
-### "Invalid JWT" Errors
-- Check that your environment variables are correct
-- Ensure the Supabase URL doesn't have a trailing slash
-- Verify the anon key is copied correctly
+### Common Issues
 
-### Permission Denied Errors
-- Check RLS policies are enabled and configured correctly
-- Verify user has the correct role in metadata
-- Check if the user is authenticated
+1. **"Missing environment variable" error**
 
-### Storage Upload Errors
-- Verify storage buckets exist
-- Check storage policies allow the operation
-- Ensure file size and type restrictions are met
+   - Make sure your `.env.local` file exists and has the correct variable names
+   - Restart your development server after adding environment variables
 
-### Authentication Issues
-- Check site URL and redirect URLs in Supabase settings
-- Verify email confirmation settings match your setup
-- Check browser console for specific error messages
+2. **Authentication not working**
+
+   - Check that your Site URL and Redirect URLs are correctly configured
+   - Verify that your user has a role assigned in the user metadata
+
+3. **Database access denied**
+
+   - Ensure RLS policies are properly configured
+   - Check that your user has the correct role assigned
+
+4. **Storage uploads failing**
+   - Verify storage buckets exist
+   - Check storage policies are configured correctly
+   - Ensure user has appropriate role (admin/editor)
+
+### Getting Help
+
+- Check the [Supabase Documentation](https://supabase.com/docs)
+- Join the [Supabase Discord](https://discord.supabase.com)
+- Review the project's `req.md` file for detailed requirements
 
 ## Next Steps
 
-With Supabase integration complete, you can now:
+After completing this setup:
 
-1. Implement the remaining admin pages (Cloudflare, Textlinks)
-2. Add real data to replace mock data
-3. Implement file upload functionality for games
-4. Add user management features
-5. Set up production deployment
-
-The foundation is now in place for a fully functional CMS with authentication, database operations, and file storage.
+1. Test all CRUD operations for websites, games, and textlinks
+2. Test Cloudflare integration
+3. Test public APIs
+4. Set up monitoring and logging
+5. Deploy to production
