@@ -338,12 +338,51 @@ CREATE POLICY "Document storage write policy" ON storage.objects
     get_user_role() IN ('admin', 'editor')
   );
 
--- 11. Insert sample data (optional)
-INSERT INTO public.websites (url, title, "desc", category, is_gsa, is_index, is_featured, traffic, domain_rating, backlinks, referring_domains, is_wp) VALUES
-  ('https://example.com', 'Example Website', 'A sample website for demonstration', 'blog', true, true, false, 15000, 65, 1200, 890, true),
-  ('https://techblog.dev', 'Tech Blog', 'Technology focused blog', 'tech', false, true, true, 45000, 78, 3400, 2100, false),
-  ('https://gamereviews.net', 'Game Reviews', 'Video game reviews and news', 'gaming', true, true, true, 28000, 72, 2100, 1450, true)
+
+
+-- 11. Seed example data for websites and textlinks
+INSERT INTO public.websites (url, title, "desc", category, is_gsa, is_index, is_featured, traffic, domain_rating, backlinks, referring_domains, is_wp)
+VALUES
+  ('https://site-one.example', 'Site One', 'Tech tutorials and guides', 'technology', false, true, true, 120000, 62, 5400, 380, true),
+  ('https://site-two.example', 'Site Two', 'Daily sports news and analysis', 'sports', false, true, false, 85000, 55, 3100, 240, false),
+  ('https://site-three.example', 'Site Three', 'Puzzle and trivia community', 'puzzle', false, true, false, 43000, 48, 1200, 130, true),
+  ('https://arcade-hub.example', 'Arcade Hub', 'Classic arcade reviews and rankings', 'arcade', false, true, true, 67000, 51, 2100, 180, false),
+  ('https://cooking-corner.example', 'Cooking Corner', 'Recipes and kitchen tips', 'lifestyle', false, true, false, 29000, 42, 800, 95, true)
 ON CONFLICT (url) DO NOTHING;
+
+-- Insert sample textlinks (idempotent via NOT EXISTS guards)
+INSERT INTO public.textlinks (link, anchor_text, target, rel, title, website_id, show_on_all_pages, include_paths, exclude_paths)
+SELECT 'https://partner.example/signup', 'Join Partner Program', '_blank', 'nofollow noopener', 'Partner Program',
+       (SELECT id FROM public.websites WHERE url = 'https://site-one.example'), true, '/blog/*,/guides/*', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.textlinks tl
+  WHERE tl.link = 'https://partner.example/signup' AND tl.anchor_text = 'Join Partner Program'
+);
+
+INSERT INTO public.textlinks (link, anchor_text, target, rel, title, website_id, show_on_all_pages, include_paths, exclude_paths)
+SELECT 'https://arcade-hub.example/top-100', 'Top 100 Arcade Games', '_self', '', 'Top 100',
+       (SELECT id FROM public.websites WHERE url = 'https://arcade-hub.example'), false, '/rankings/*', '/rankings/archive/*'
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.textlinks tl
+  WHERE tl.link = 'https://arcade-hub.example/top-100' AND tl.anchor_text = 'Top 100 Arcade Games'
+);
+
+-- Custom domain variant (no website_id)
+INSERT INTO public.textlinks (link, anchor_text, target, rel, title, custom_domain, show_on_all_pages, include_paths, exclude_paths)
+SELECT 'https://deals.partner.example', 'Exclusive Deals', '_blank', 'sponsored nofollow', 'Deals',
+       'partner.example', true, '', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.textlinks tl
+  WHERE tl.link = 'https://deals.partner.example' AND tl.anchor_text = 'Exclusive Deals'
+);
+
+INSERT INTO public.textlinks (link, anchor_text, target, rel, title, website_id, show_on_all_pages, include_paths, exclude_paths)
+SELECT 'https://site-two.example/newsletter', 'Subscribe to Newsletter', '_self', 'nofollow', 'Newsletter',
+       (SELECT id FROM public.websites WHERE url = 'https://site-two.example'), true, '/news/*', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.textlinks tl
+  WHERE tl.link = 'https://site-two.example/newsletter' AND tl.anchor_text = 'Subscribe to Newsletter'
+);
 
 INSERT INTO public.games (url, title, "desc", category, game_url, game_developer, game_publish_year, game_controls, is_featured) VALUES
   ('retro-bowl', 'Retro Bowl', 'American football game with retro graphics', 'sports', 'https://games.example.com/retro-bowl', 'New Star Games', 2020, '{"keyboard": true, "mouse": true, "touch": false}', true),

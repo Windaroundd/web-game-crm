@@ -1,0 +1,223 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { z } from "zod";
+
+// Query parameters validation schema
+const querySchema = z.object({
+  category: z.string().optional(),
+  isFeatured: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val == null ? undefined : val === "1" || val === "true"
+    ),
+  isIndex: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val == null ? undefined : val === "1" || val === "true"
+    ),
+  minTraffic: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : undefined)),
+  minDR: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : undefined)),
+  sort: z
+    .enum([
+      "traffic",
+      "domain_rating",
+      "backlinks",
+      "referring_domains",
+      "created_at",
+    ])
+    .optional()
+    .default("created_at"),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? Math.min(parseInt(val), 100) : 10)),
+  page: z
+    .string()
+    .optional()
+    .transform((val) => (val ? Math.max(parseInt(val), 1) : 1)),
+});
+
+export async function GET(request: NextRequest) {
+  try {
+    // Rate limit per req.md (60 req/min)
+    const rateLimit = checkRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          status: "error",
+          error: "Rate limit exceeded. Please try again later.",
+        },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(
+            rateLimit.allowed,
+            rateLimit.remaining,
+            rateLimit.resetTime
+          ),
+        }
+      );
+    }
+    const supabase = await createClient();
+
+    // Parse and validate query parameters
+    const url = new URL(request.url);
+    const queryParams = Object.fromEntries(url.searchParams.entries());
+    const validatedQuery = querySchema.parse(queryParams);
+
+    const {
+      category,
+      isFeatured,
+      isIndex,
+      minTraffic,
+      minDR,
+      sort,
+      limit,
+      page,
+    } = validatedQuery;
+
+    // Build query
+    let query = supabase.from("websites").select("*").eq("is_index", true); // Only show indexed websites by default
+
+    // Apply filters
+    if (category) {
+      query = query.eq("category", category);
+    }
+
+    if (isFeatured !== undefined) {
+      query = query.eq("is_featured", isFeatured);
+    }
+
+    if (isIndex !== undefined) {
+      query = query.eq("is_index", isIndex);
+    }
+
+    if (minTraffic !== undefined) {
+      query = query.gte("traffic", minTraffic);
+    }
+
+    if (minDR !== undefined) {
+      query = query.gte("domain_rating", minDR);
+    }
+
+    // Apply sorting
+    query = query.order(sort, { ascending: false });
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: websites, error } = await query;
+
+    if (error) {
+      console.error("Database error:", error);
+      return NextResponse.json(
+        {
+          status: "error",
+          error: "Failed to fetch websites",
+          details: error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Get total count for pagination
+    // Count with the same filters
+    let countQuery = supabase
+      .from("websites")
+      .select("*", { count: "exact", head: true })
+      .eq("is_index", true);
+
+    if (category) {
+      countQuery = countQuery.eq("category", category);
+    }
+    if (isFeatured !== undefined) {
+      countQuery = countQuery.eq("is_featured", isFeatured);
+    }
+    if (isIndex !== undefined) {
+      countQuery = countQuery.eq("is_index", isIndex);
+    }
+    if (minTraffic !== undefined) {
+      countQuery = countQuery.gte("traffic", minTraffic);
+    }
+    if (minDR !== undefined) {
+      countQuery = countQuery.gte("domain_rating", minDR);
+    }
+
+    const { count: totalCount } = await countQuery;
+
+    const totalPages = Math.ceil((totalCount || 0) / limit);
+
+    return NextResponse.json(
+      {
+        status: "success",
+        data: websites || [],
+        pagination: {
+          page,
+          limit,
+          total: totalCount || 0,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        },
+      },
+      {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET",
+          "Access-Control-Allow-Headers": "Content-Type",
+          ...getRateLimitHeaders(
+            rateLimit.allowed,
+            rateLimit.remaining,
+            rateLimit.resetTime
+          ),
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API error:", error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          status: "error",
+          error: "Invalid query parameters",
+          details: error.issues,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        status: "error",
+        error: "Internal server error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// CORS preflight
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
