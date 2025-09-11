@@ -14,11 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
-  IconApi,
   IconCopy,
-  IconCode,
-  IconShield,
-  IconClock,
   IconCheck,
   IconWorld,
   IconDeviceGamepad2,

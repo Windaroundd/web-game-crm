@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { 
-  IconUpload, 
-  IconX, 
-  IconFile, 
+import {
+  IconUpload,
+  IconX,
+  IconFile,
   IconCheck,
   IconAlertCircle,
 } from "@tabler/icons-react";
@@ -85,19 +85,19 @@ export function FileUpload({
 
   const handleFiles = async (files: File[]) => {
     const validFiles: File[] = [];
-    
+
     // Validate each file
     for (const file of files) {
       const validation = validateFile(file, {
         maxSize,
-        allowedTypes: accept.split(',').map(type => type.trim())
+        allowedTypes: accept.split(",").map((type) => type.trim()),
       });
-      
+
       if (!validation.valid) {
         toast.error(`${file.name}: ${validation.error}`);
         continue;
       }
-      
+
       validFiles.push(file);
     }
 
@@ -107,14 +107,14 @@ export function FileUpload({
       validFiles.splice(1);
     }
 
-    const newFiles: UploadedFile[] = validFiles.map(file => ({
+    const newFiles: UploadedFile[] = validFiles.map((file) => ({
       file,
       url: URL.createObjectURL(file), // Temporary preview URL
       status: "uploading",
       progress: 0,
     }));
 
-    setUploadedFiles(prev => multiple ? [...prev, ...newFiles] : newFiles);
+    setUploadedFiles((prev) => (multiple ? [...prev, ...newFiles] : newFiles));
 
     // Upload files to Supabase
     const uploadPromises = newFiles.map(async (uploadedFile, index) => {
@@ -123,20 +123,25 @@ export function FileUpload({
     });
 
     const uploadedUrls = await Promise.all(uploadPromises);
-    const successfulUrls = uploadedUrls.filter(url => url !== null) as string[];
-    
+    const successfulUrls = uploadedUrls.filter(
+      (url) => url !== null
+    ) as string[];
+
     if (onUpload && successfulUrls.length > 0) {
       onUpload(successfulUrls);
     }
   };
 
-  const uploadFileToSupabase = async (uploadedFile: UploadedFile, index: number): Promise<string | null> => {
+  const uploadFileToSupabase = async (
+    uploadedFile: UploadedFile,
+    index: number
+  ): Promise<string | null> => {
     try {
       // Update progress periodically
       const progressInterval = setInterval(() => {
-        setUploadedFiles(prev => 
-          prev.map((file, i) => 
-            i === index 
+        setUploadedFiles((prev) =>
+          prev.map((file, i) =>
+            i === index
               ? { ...file, progress: Math.min(file.progress + 20, 90) }
               : file
           )
@@ -152,9 +157,9 @@ export function FileUpload({
       clearInterval(progressInterval);
 
       if (result.error) {
-        setUploadedFiles(prev => 
-          prev.map((file, i) => 
-            i === index 
+        setUploadedFiles((prev) =>
+          prev.map((file, i) =>
+            i === index
               ? { ...file, status: "error", error: result.error, progress: 0 }
               : file
           )
@@ -164,21 +169,20 @@ export function FileUpload({
       }
 
       // Update with success
-      setUploadedFiles(prev => 
-        prev.map((file, i) => 
-          i === index 
+      setUploadedFiles((prev) =>
+        prev.map((file, i) =>
+          i === index
             ? { ...file, status: "success", progress: 100, url: result.url }
             : file
         )
       );
-      
+
       toast.success(`${uploadedFile.file.name} uploaded successfully`);
       return result.url;
-      
-    } catch (error: unknown) {
-      setUploadedFiles(prev => 
-        prev.map((file, i) => 
-          i === index 
+    } catch {
+      setUploadedFiles((prev) =>
+        prev.map((file, i) =>
+          i === index
             ? { ...file, status: "error", error: "Upload failed", progress: 0 }
             : file
         )
@@ -188,9 +192,8 @@ export function FileUpload({
     }
   };
 
-
   const removeFile = (index: number) => {
-    setUploadedFiles(prev => {
+    setUploadedFiles((prev) => {
       const newFiles = prev.filter((_, i) => i !== index);
       return newFiles;
     });
@@ -205,8 +208,8 @@ export function FileUpload({
   };
 
   const isImage = (file: File | string) => {
-    if (typeof file === 'string') return file.includes('image');
-    return file.type.startsWith('image/');
+    if (typeof file === "string") return file.includes("image");
+    return file.type.startsWith("image/");
   };
 
   return (
@@ -220,7 +223,9 @@ export function FileUpload({
       <Card
         className={cn(
           "border-2 border-dashed transition-colors cursor-pointer",
-          dragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25",
+          dragActive
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25",
           disabled && "opacity-50 cursor-not-allowed"
         )}
         onDragEnter={handleDrag}
@@ -230,18 +235,21 @@ export function FileUpload({
         onClick={openFileDialog}
       >
         <CardContent className="flex flex-col items-center justify-center py-8 px-4">
-          <IconUpload 
+          <IconUpload
             className={cn(
               "h-8 w-8 mb-4 transition-colors",
               dragActive ? "text-primary" : "text-muted-foreground"
-            )} 
+            )}
           />
           <div className="text-center space-y-2">
             <p className="text-sm font-medium">
-              {dragActive ? "Drop files here" : "Click to upload or drag and drop"}
+              {dragActive
+                ? "Drop files here"
+                : "Click to upload or drag and drop"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {accept} up to {maxSize}MB {multiple ? "(multiple files)" : "(single file)"}
+              {accept} up to {maxSize}MB{" "}
+              {multiple ? "(multiple files)" : "(single file)"}
             </p>
           </div>
         </CardContent>
@@ -263,16 +271,25 @@ export function FileUpload({
           <Label className="text-sm font-medium">Current Files</Label>
           <div className="grid gap-3">
             {value.map((url, index) => (
-              <div key={`existing-${index}`} className="flex items-center gap-3 p-3 border rounded-lg">
+              <div
+                key={`existing-${index}`}
+                className="flex items-center gap-3 p-3 border rounded-lg"
+              >
                 {isImage(url) ? (
-                  <img src={url} alt="Uploaded file" className="w-12 h-12 object-cover rounded" />
+                  <img
+                    src={url}
+                    alt="Uploaded file"
+                    className="w-12 h-12 object-cover rounded"
+                  />
                 ) : (
                   <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
                     <IconFile className="h-6 w-6 text-muted-foreground" />
                   </div>
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-medium truncate">{url.split('/').pop()}</p>
+                  <p className="text-sm font-medium truncate">
+                    {url.split("/").pop()}
+                  </p>
                   <p className="text-xs text-muted-foreground">Uploaded</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -302,16 +319,25 @@ export function FileUpload({
           <Label className="text-sm font-medium">Uploading Files</Label>
           <div className="grid gap-3">
             {uploadedFiles.map((uploadedFile, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+              <div
+                key={index}
+                className="flex items-center gap-3 p-3 border rounded-lg"
+              >
                 {isImage(uploadedFile.file) ? (
-                  <img src={uploadedFile.url} alt="Uploaded file" className="w-12 h-12 object-cover rounded" />
+                  <img
+                    src={uploadedFile.url}
+                    alt="Uploaded file"
+                    className="w-12 h-12 object-cover rounded"
+                  />
                 ) : (
                   <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
                     <IconFile className="h-6 w-6 text-muted-foreground" />
                   </div>
                 )}
                 <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium truncate">{uploadedFile.file.name}</p>
+                  <p className="text-sm font-medium truncate">
+                    {uploadedFile.file.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB
                   </p>

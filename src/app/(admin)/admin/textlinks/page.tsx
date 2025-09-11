@@ -23,7 +23,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   IconPlus,
-  IconLink,
   IconTrash,
   IconEdit,
   IconEye,

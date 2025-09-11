@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createClientComponent } from "@/lib/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "editor" | "viewer";
 
@@ -12,14 +13,18 @@ export interface User {
 /**
  * Get user role from JWT claims
  */
-export function getUserRole(user: {
-  user_metadata?: any;
-  app_metadata?: any;
-}): UserRole {
+export function getUserRole(
+  user: Pick<SupabaseUser, "user_metadata" | "app_metadata"> | null | undefined
+): UserRole {
   if (!user) return "viewer";
 
   // Check user_metadata first, then app_metadata
-  const role = user.user_metadata?.role || user.app_metadata?.role;
+  type MetadataWithRole = { role?: unknown };
+  const userMeta = user.user_metadata as MetadataWithRole | undefined;
+  const appMeta = user.app_metadata as MetadataWithRole | undefined;
+  const role =
+    (userMeta?.role as string | undefined) ??
+    (appMeta?.role as string | undefined);
 
   // Validate role
   if (role && ["admin", "editor", "viewer"].includes(role)) {
