@@ -107,7 +107,7 @@ export function LoginForm({
               </div>
               <span className="sr-only">Website & Game Management System</span>
             </Link>
-            <h1 className="text-xl font-bold">
+            <h1 className="text-xl font-bold text-center">
               Welcome to Website & Game Management System
             </h1>
             <div className="text-center text-sm">
@@ -153,7 +153,7 @@ export function LoginForm({
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </div>
-          <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
+          {/* <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
             <span className="bg-background text-muted-foreground relative z-10 px-2">
               Or continue with
             </span>
@@ -195,10 +195,10 @@ export function LoginForm({
               </svg>
               Google
             </Button>
-          </div>
+          </div> */}
         </div>
       </form>
-      <div className="text-muted-foreground text-center text-xs text-balance">
+      {/* <div className="text-muted-foreground text-center text-xs text-balance">
         By signing in, you agree to our{" "}
         <a href="#" className="underline underline-offset-4 hover:text-primary">
           Terms of Service
@@ -208,7 +208,7 @@ export function LoginForm({
           Privacy Policy
         </a>
         .
-      </div>
+      </div> */}
     </div>
   );
 }
