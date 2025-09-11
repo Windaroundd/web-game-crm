@@ -77,7 +77,7 @@ export function LoginForm({
 
         // Get redirect URL from query params or default to admin
         const urlParams = new URLSearchParams(window.location.search);
-        const redirectTo = urlParams.get("redirectTo") || "/admin";
+        const redirectTo = urlParams.get("redirectTo") || "/admin/websites";
 
         router.push(redirectTo);
         router.refresh();
