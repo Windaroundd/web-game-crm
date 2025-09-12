@@ -13,8 +13,8 @@ import {
   IconCheck,
   IconAlertCircle,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
-import { uploadToSupabase, validateFile } from "@/lib/supabase-storage";
+import { cn } from "@/lib/utils/utils";
+import { uploadToSupabase, validateFile } from "@/lib/database/supabase-storage";
 
 interface FileUploadProps {
   accept?: string;

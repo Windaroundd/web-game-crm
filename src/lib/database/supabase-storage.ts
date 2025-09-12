@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/database/supabase/client";
 
 export interface ValidateOptions {
   maxSize?: number; // MB

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { createClient } from "@/lib/database/supabase/server";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limit";
 import { z } from "zod";
 
 // Query parameters validation schema

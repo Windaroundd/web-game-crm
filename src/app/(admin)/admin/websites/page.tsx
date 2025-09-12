@@ -48,7 +48,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AddWebsiteDialog } from "@/components/add-website-dialog";
+import { AddWebsiteDialog } from "@/components/forms/add-website-dialog";
 
 // Mock data - replace with actual data fetching
 const mockWebsites = [

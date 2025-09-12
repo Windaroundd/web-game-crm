@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createClientComponent } from "@/lib/supabase/client";
+import { createClient } from "@/lib/database/supabase/server";
+import { createClient as createClientComponent } from "@/lib/database/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "editor" | "viewer";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/database/supabase/client";
 import { Button } from "@/components/ui/button";
 import { IconLogout } from "@tabler/icons-react";
 

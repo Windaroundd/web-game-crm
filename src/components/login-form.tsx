@@ -6,7 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,8 @@ import {
   loginSchema,
   type LoginFormData,
   validateFormData,
-} from "@/lib/validations";
-import { createClient } from "@/lib/supabase/client";
+} from "@/lib/utils/validations";
+import { createClient } from "@/lib/database/supabase/client";
 
 export function LoginForm({
   className,
