@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -11,18 +11,27 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
 import { Checkbox } from "@/components/ui/checkbox";
-import { IconPlus } from "@tabler/icons-react";
+import { IconEdit } from "@tabler/icons-react";
+import type { Database } from "@/lib/types/database";
 import {
   websiteFormSchema,
   type WebsiteFormData,
 } from "@/lib/validations/website";
+
+type Website = Database["public"]["Tables"]["websites"]["Row"];
 
 const categories = [
   "blog",
@@ -34,13 +43,19 @@ const categories = [
   "health",
 ];
 
-interface AddWebsiteDialogProps {
-  onAddWebsite: (website: WebsiteFormData) => void;
+interface EditWebsiteDialogProps {
+  website: Website | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEditWebsite: (id: number, data: Partial<WebsiteFormData>) => void;
 }
 
-export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
-  const [open, setOpen] = useState(false);
-
+export function EditWebsiteDialog({
+  website,
+  open,
+  onOpenChange,
+  onEditWebsite,
+}: EditWebsiteDialogProps) {
   const {
     register,
     handleSubmit,
@@ -66,29 +81,46 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
     },
   });
 
+  // Populate form when website changes
+  useEffect(() => {
+    if (website) {
+      reset({
+        url: website.url,
+        title: website.title,
+        desc: website.desc || "",
+        category: website.category || "",
+        is_gsa: website.is_gsa,
+        is_index: website.is_index,
+        is_featured: website.is_featured,
+        traffic: website.traffic,
+        domain_rating: website.domain_rating,
+        backlinks: website.backlinks,
+        referring_domains: website.referring_domains,
+        is_wp: website.is_wp,
+      });
+    }
+  }, [website, reset]);
+
   const onSubmit = async (data: WebsiteFormData) => {
+    if (!website) return;
+
     try {
-      await onAddWebsite(data);
-      reset();
-      setOpen(false);
+      await onEditWebsite(website.id, data);
+      onOpenChange(false);
     } catch (error) {
-      console.error("Error adding website:", error);
+      console.error("Error updating website:", error);
     }
   };
 
+  if (!website) return null;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <IconPlus className="h-4 w-4 mr-2" />
-          Add Website
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Website</DialogTitle>
+          <DialogTitle>Edit Website</DialogTitle>
           <DialogDescription>
-            Add a new website to your portfolio. Fill in the details below.
+            Update the website information below.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -210,32 +242,34 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
 
           <div className="space-y-3">
             <Label>Website Properties</Label>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_index" {...register("is_index")} />
-              <Label htmlFor="is_index" className="text-sm font-normal">
-                Indexed by search engines
-              </Label>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_index" {...register("is_index")} />
+                <Label htmlFor="is_index" className="text-sm font-normal">
+                  Indexed
+                </Label>
+              </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_gsa" {...register("is_gsa")} />
-              <Label htmlFor="is_gsa" className="text-sm font-normal">
-                GSA (Google Search Appliance)
-              </Label>
-            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_gsa" {...register("is_gsa")} />
+                <Label htmlFor="is_gsa" className="text-sm font-normal">
+                  GSA
+                </Label>
+              </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_featured" {...register("is_featured")} />
-              <Label htmlFor="is_featured" className="text-sm font-normal">
-                Featured website
-              </Label>
-            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_featured" {...register("is_featured")} />
+                <Label htmlFor="is_featured" className="text-sm font-normal">
+                  Featured
+                </Label>
+              </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_wp" {...register("is_wp")} />
-              <Label htmlFor="is_wp" className="text-sm font-normal">
-                WordPress site
-              </Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_wp" {...register("is_wp")} />
+                <Label htmlFor="is_wp" className="text-sm font-normal">
+                  WordPress
+                </Label>
+              </div>
             </div>
           </div>
 
@@ -243,12 +277,12 @@ export function AddWebsiteDialog({ onAddWebsite }: AddWebsiteDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Website"}
+              {isSubmitting ? "Updating..." : "Update Website"}
             </Button>
           </DialogFooter>
         </form>
