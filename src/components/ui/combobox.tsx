@@ -71,7 +71,7 @@ export function Combobox({
     searchValue,
     isNewOption,
     allowCustom,
-    filteredOptions: filteredOptions.length
+    filteredOptions: filteredOptions.length,
   });
 
   const displayValue = value || placeholder;
@@ -120,19 +120,38 @@ export function Combobox({
                 </CommandItem>
               ))}
               {isNewOption && (
-                <CommandItem 
-                  value={`create-${searchValue.trim()}`}
-                  onSelect={handleCreateNew}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log("onClick triggered");
-                    handleCreateNew();
-                  }}
-                >
-                  <Check className="mr-2 h-4 w-4 opacity-0" />
-                  Create &quot;{searchValue.trim()}&quot;
-                </CommandItem>
+                <>
+                  <CommandItem
+                    value={`create-${searchValue.trim()}`}
+                    onSelect={handleCreateNew}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("onClick triggered");
+                      handleCreateNew();
+                    }}
+                  >
+                    {/* <Check className="mr-2 h-4 w-4 opacity-0" />
+                    Create &quot;{searchValue.trim()}&quot; */}
+                  </CommandItem>
+                  {/* Fallback button in case CommandItem doesn't work */}
+                  <div className="px-2 py-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-auto p-0 font-normal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Fallback button clicked");
+                        handleCreateNew();
+                      }}
+                    >
+                      <Check className="mr-2 h-4 w-4 opacity-50" />
+                      Create &quot;{searchValue.trim()}&quot;
+                    </Button>
+                  </div>
+                </>
               )}
             </CommandGroup>
           </CommandList>
