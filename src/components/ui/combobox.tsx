@@ -48,8 +48,11 @@ export function Combobox({
   };
 
   const handleCreateNew = () => {
-    if (searchValue.trim() && allowCustom) {
-      onValueChange(searchValue.trim());
+    const newValue = searchValue.trim();
+    console.log("handleCreateNew called with:", newValue);
+    if (newValue && allowCustom) {
+      console.log("Setting new value:", newValue);
+      onValueChange(newValue);
       setOpen(false);
       setSearchValue("");
     }
@@ -58,6 +61,11 @@ export function Combobox({
   const filteredOptions = options.filter((option) =>
     option.toLowerCase().includes(searchValue.toLowerCase())
   );
+
+  // Check if search value is a new option not in the list
+  const isNewOption = searchValue.trim() && 
+    !options.includes(searchValue.trim()) && 
+    allowCustom;
 
   const displayValue = value || placeholder;
 
@@ -88,20 +96,7 @@ export function Combobox({
           />
           <CommandList>
             <CommandEmpty>
-              {allowCustom && searchValue.trim() ? (
-                <div className="p-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={handleCreateNew}
-                  >
-                    <Check className="mr-2 h-4 w-4" />
-                    Create "{searchValue.trim()}"
-                  </Button>
-                </div>
-              ) : (
-                "No option found."
-              )}
+              No option found.
             </CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
@@ -119,14 +114,12 @@ export function Combobox({
                   {option.charAt(0).toUpperCase() + option.slice(1)}
                 </CommandItem>
               ))}
-              {allowCustom &&
-                searchValue.trim() &&
-                !filteredOptions.includes(searchValue.trim()) && (
-                  <CommandItem onSelect={handleCreateNew}>
-                    <Check className="mr-2 h-4 w-4 opacity-0" />
-                    Create "{searchValue.trim()}"
-                  </CommandItem>
-                )}
+              {isNewOption && (
+                <CommandItem onSelect={handleCreateNew}>
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  Create "{searchValue.trim()}"
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>
