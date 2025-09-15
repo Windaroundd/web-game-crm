@@ -82,7 +82,14 @@ export function EditGameDialog({
       setValue("game_publish_year", game.game_publish_year || undefined);
       setValue("game", game.game || "");
       setValue("is_featured", game.is_featured);
-      setValue("game_controls", game.game_controls as { keyboard: boolean; mouse: boolean; touch: boolean; });
+      setValue(
+        "game_controls",
+        game.game_controls as {
+          keyboard: boolean;
+          mouse: boolean;
+          touch: boolean;
+        }
+      );
     }
   }, [game, open, setValue]);
 
@@ -115,7 +122,8 @@ export function EditGameDialog({
         <DialogHeader>
           <DialogTitle>Edit Game</DialogTitle>
           <DialogDescription>
-            Edit the game details below. All changes will be saved to the database.
+            Edit the game details below. All changes will be saved to the
+            database.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -218,7 +226,9 @@ export function EditGameDialog({
                 )}
               />
               {errors.game_url && (
-                <p className="text-sm text-red-600">{errors.game_url.message}</p>
+                <p className="text-sm text-red-600">
+                  {errors.game_url.message}
+                </p>
               )}
             </div>
           </div>

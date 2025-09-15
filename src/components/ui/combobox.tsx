@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -119,14 +119,14 @@ export function Combobox({
                   {option.charAt(0).toUpperCase() + option.slice(1)}
                 </CommandItem>
               ))}
-              {allowCustom && 
-               searchValue.trim() && 
-               !filteredOptions.includes(searchValue.trim()) && (
-                <CommandItem onSelect={handleCreateNew}>
-                  <Check className="mr-2 h-4 w-4 opacity-0" />
-                  Create "{searchValue.trim()}"
-                </CommandItem>
-              )}
+              {allowCustom &&
+                searchValue.trim() &&
+                !filteredOptions.includes(searchValue.trim()) && (
+                  <CommandItem onSelect={handleCreateNew}>
+                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                    Create "{searchValue.trim()}"
+                  </CommandItem>
+                )}
             </CommandGroup>
           </CommandList>
         </Command>
