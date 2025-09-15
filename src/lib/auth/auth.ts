@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/database/supabase/server";
-import { createClient as createClientComponent } from "@/lib/database/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "editor" | "viewer";
@@ -60,31 +59,6 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-/**
- * Get current user with role (client-side)
- */
-export async function getCurrentUserClient(): Promise<User | null> {
-  try {
-    const supabase = createClientComponent();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      return null;
-    }
-
-    return {
-      id: user.id,
-      email: user.email || "",
-      role: getUserRole(user),
-    };
-  } catch (error) {
-    console.error("Error getting current user:", error);
-    return null;
-  }
-}
 
 /**
  * Check if user has required role
