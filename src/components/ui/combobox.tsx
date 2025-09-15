@@ -63,9 +63,16 @@ export function Combobox({
   );
 
   // Check if search value is a new option not in the list
-  const isNewOption = searchValue.trim() && 
-    !options.includes(searchValue.trim()) && 
-    allowCustom;
+  const isNewOption =
+    searchValue.trim() && !options.includes(searchValue.trim()) && allowCustom;
+
+  // Debug logging
+  console.log("Combobox render:", {
+    searchValue,
+    isNewOption,
+    allowCustom,
+    filteredOptions: filteredOptions.length
+  });
 
   const displayValue = value || placeholder;
 
@@ -95,9 +102,7 @@ export function Combobox({
             onValueChange={setSearchValue}
           />
           <CommandList>
-            <CommandEmpty>
-              No option found.
-            </CommandEmpty>
+            <CommandEmpty>No option found.</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
                 <CommandItem
@@ -115,9 +120,18 @@ export function Combobox({
                 </CommandItem>
               ))}
               {isNewOption && (
-                <CommandItem onSelect={handleCreateNew}>
+                <CommandItem 
+                  value={`create-${searchValue.trim()}`}
+                  onSelect={handleCreateNew}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("onClick triggered");
+                    handleCreateNew();
+                  }}
+                >
                   <Check className="mr-2 h-4 w-4 opacity-0" />
-                  Create "{searchValue.trim()}"
+                  Create &quot;{searchValue.trim()}&quot;
                 </CommandItem>
               )}
             </CommandGroup>
