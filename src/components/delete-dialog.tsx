@@ -10,8 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
 import { IconAlertTriangle, IconTrash } from "@tabler/icons-react";
 
 interface DeleteDialogProps {
@@ -20,8 +19,7 @@ interface DeleteDialogProps {
   onConfirm: () => void;
   title: string;
   description: string;
-  itemName?: string;
-  requireConfirmation?: boolean;
+
   isLoading?: boolean;
 }
 
@@ -31,25 +29,15 @@ export function DeleteDialog({
   onConfirm,
   title,
   description,
-  itemName,
-  requireConfirmation = false,
+
   isLoading = false,
 }: DeleteDialogProps) {
-  const [confirmText, setConfirmText] = useState("");
-  
-  const isConfirmed = !requireConfirmation || 
-    (itemName && confirmText.toLowerCase() === itemName.toLowerCase());
-
   const handleConfirm = () => {
-    if (isConfirmed) {
-      onConfirm();
-      setConfirmText("");
-    }
+    onConfirm();
   };
 
   const handleCancel = () => {
     onOpenChange(false);
-    setConfirmText("");
   };
 
   return (
@@ -64,22 +52,7 @@ export function DeleteDialog({
             {description}
           </DialogDescription>
         </DialogHeader>
-        
-        {requireConfirmation && itemName && (
-          <div className="space-y-2">
-            <Label htmlFor="confirm-text">
-              Type <strong>{itemName}</strong> to confirm:
-            </Label>
-            <Input
-              id="confirm-text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder={itemName}
-              autoComplete="off"
-            />
-          </div>
-        )}
-        
+
         <DialogFooter className="flex gap-2 sm:gap-0">
           <Button
             type="button"
@@ -93,7 +66,7 @@ export function DeleteDialog({
             type="button"
             variant="destructive"
             onClick={handleConfirm}
-            disabled={!isConfirmed || isLoading}
+            disabled={isLoading}
           >
             <IconTrash className="h-4 w-4 mr-2" />
             {isLoading ? "Deleting..." : "Delete"}
@@ -128,14 +101,15 @@ export function BulkDeleteDialog({
         <DialogHeader className="text-left">
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <IconAlertTriangle className="h-5 w-5" />
-            Delete {count} {itemType}{count !== 1 ? 's' : ''}
+            Delete {count} {itemType}
+            {count !== 1 ? "s" : ""}
           </DialogTitle>
           <DialogDescription className="text-left">
-            Are you sure you want to delete {count} {itemType}{count !== 1 ? 's' : ''}? 
-            This action cannot be undone.
+            Are you sure you want to delete {count} {itemType}
+            {count !== 1 ? "s" : ""}? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        
+
         <DialogFooter className="flex gap-2 sm:gap-0">
           <Button
             type="button"
@@ -152,7 +126,9 @@ export function BulkDeleteDialog({
             disabled={isLoading}
           >
             <IconTrash className="h-4 w-4 mr-2" />
-            {isLoading ? "Deleting..." : `Delete ${count} ${itemType}${count !== 1 ? 's' : ''}`}
+            {isLoading
+              ? "Deleting..."
+              : `Delete ${count} ${itemType}${count !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

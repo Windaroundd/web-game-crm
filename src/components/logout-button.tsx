@@ -39,7 +39,7 @@ export function LogoutButton({
       }
 
       toast.success("Logged out successfully");
-      router.push("/login");
+      router.push("/auth/login");
       router.refresh();
     } catch (error: unknown) {
       console.error("Logout error:", error);

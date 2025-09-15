@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -12,9 +11,14 @@ import {
   IconFile,
   IconCheck,
   IconAlertCircle,
+  IconPlus,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils/utils";
-import { uploadToSupabase, validateFile } from "@/lib/database/supabase-storage";
+import {
+  uploadToSupabase,
+  validateFile,
+} from "@/lib/database/supabase-storage";
 
 interface FileUploadProps {
   accept?: string;
@@ -37,6 +41,106 @@ interface UploadedFile {
   status: "uploading" | "success" | "error";
   progress: number;
   error?: string;
+}
+
+// Target size for images: 4MB
+const TARGET_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
+
+async function readImageFromFile(file: File): Promise<HTMLImageElement> {
+  const image = new Image();
+  image.decoding = "async";
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+  return new Promise((resolve, reject) => {
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load image"));
+    image.src = dataUrl;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return reject(new Error("Compression produced empty blob"));
+        resolve(blob);
+      },
+      type,
+      quality
+    );
+  });
+}
+
+function isImageMimeType(mime: string) {
+  return mime.startsWith("image/");
+}
+
+async function compressImageToTarget(
+  file: File,
+  targetBytes = TARGET_IMAGE_SIZE_BYTES
+): Promise<File> {
+  if (!isImageMimeType(file.type)) return file;
+  if (file.size <= targetBytes) return file;
+
+  const image = await readImageFromFile(file);
+
+  // Start with a generous max dimension to preserve quality, reduce as needed
+  let scale = 1;
+  let quality = 0.92;
+
+  // Prefer webp for better compression unless the browser doesn't support it
+  // In modern browsers this is fine; fall back to jpeg if needed
+  const outputType = "image/webp";
+
+  // Create a canvas once and reuse
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+
+  // Helper to render at current scale and quality
+  const attempt = async () => {
+    const targetWidth = Math.max(1, Math.round(image.naturalWidth * scale));
+    const targetHeight = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    ctx.clearRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+    return await canvasToBlob(canvas, outputType, quality);
+  };
+
+  // Iterate reducing quality first, then scale if needed
+  // Hard limits to avoid long loops
+  for (let i = 0; i < 12; i++) {
+    const blob = await attempt();
+    if (blob.size <= targetBytes) {
+      return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+        type: outputType,
+      });
+    }
+    if (quality > 0.5) {
+      quality = Math.max(0.5, quality - 0.1);
+    } else {
+      // Reduce dimensions by 15% each step once quality is low
+      scale = Math.max(0.3, scale * 0.85);
+    }
+  }
+
+  // Final attempt at minimum settings
+  const finalBlob = await canvasToBlob(canvas, outputType, 0.5);
+  if (finalBlob.size < file.size) {
+    return new File([finalBlob], file.name.replace(/\.[^.]+$/, ".webp"), {
+      type: outputType,
+    });
+  }
+  return file;
 }
 
 export function FileUpload({
@@ -84,10 +188,28 @@ export function FileUpload({
   };
 
   const handleFiles = async (files: File[]) => {
+    // First, compress images over 4MB
+    const processedFiles = await Promise.all(
+      files.map(async (file) => {
+        try {
+          if (
+            isImageMimeType(file.type) &&
+            file.size > TARGET_IMAGE_SIZE_BYTES
+          ) {
+            const compressed = await compressImageToTarget(file);
+            return compressed;
+          }
+          return file;
+        } catch {
+          return file;
+        }
+      })
+    );
+
     const validFiles: File[] = [];
 
-    // Validate each file
-    for (const file of files) {
+    // Validate each processed file
+    for (const file of processedFiles) {
       const validation = validateFile(file, {
         maxSize,
         allowedTypes: accept.split(",").map((type) => type.trim()),
@@ -115,6 +237,7 @@ export function FileUpload({
     }));
 
     setUploadedFiles((prev) => (multiple ? [...prev, ...newFiles] : newFiles));
+    console.log("newFiles: ", newFiles);
 
     // Upload files to Supabase
     const uploadPromises = newFiles.map(async (uploadedFile, index) => {
@@ -129,6 +252,7 @@ export function FileUpload({
 
     if (onUpload && successfulUrls.length > 0) {
       onUpload(successfulUrls);
+      setUploadedFiles((prev) => prev.filter((f) => f.status !== "success"));
     }
   };
 
@@ -208,7 +332,12 @@ export function FileUpload({
   };
 
   const isImage = (file: File | string) => {
-    if (typeof file === "string") return file.includes("image");
+    if (typeof file === "string") {
+      const lower = file.toLowerCase();
+      const byExt = /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(lower);
+      const byAccept = accept.includes("image/");
+      return byExt || byAccept;
+    }
     return file.type.startsWith("image/");
   };
 
@@ -234,24 +363,138 @@ export function FileUpload({
         onDrop={handleDrop}
         onClick={openFileDialog}
       >
-        <CardContent className="flex flex-col items-center justify-center py-8 px-4">
-          <IconUpload
-            className={cn(
-              "h-8 w-8 mb-4 transition-colors",
-              dragActive ? "text-primary" : "text-muted-foreground"
-            )}
-          />
-          <div className="text-center space-y-2">
-            <p className="text-sm font-medium">
-              {dragActive
-                ? "Drop files here"
-                : "Click to upload or drag and drop"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {accept} up to {maxSize}MB{" "}
-              {multiple ? "(multiple files)" : "(single file)"}
-            </p>
-          </div>
+        <CardContent className="py-5 px-5">
+          {value.length === 0 && uploadedFiles.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10">
+              <div className="rounded-full bg-muted/50 p-3 mb-3">
+                <IconUpload
+                  className={cn(
+                    "h-6 w-6 transition-colors",
+                    dragActive ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+              </div>
+              <p className="text-sm font-medium">
+                {dragActive
+                  ? "Drop file here"
+                  : "Click to upload or drag and drop"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {accept} {multiple ? "• nhiều file" : ""}
+              </p>
+            </div>
+          )}
+
+          {(value.length > 0 || uploadedFiles.length > 0) && (
+            <div
+              className={
+                multiple
+                  ? `grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3`
+                  : ""
+              }
+            >
+              {value.map((url, index) => (
+                <div
+                  key={`existing-${index}`}
+                  className="group relative aspect-square overflow-hidden rounded-xl ring-1 ring-border bg-background shadow-sm"
+                >
+                  {isImage(url) ? (
+                    <img
+                      src={url}
+                      alt="Uploaded file"
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-muted flex items-center justify-center">
+                      <IconFile className="h-7 w-7 text-muted-foreground" />
+                    </div>
+                  )}
+                  {onRemove && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove(index);
+                      }}
+                      disabled={disabled}
+                      className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/80 shadow ring-1 ring-border opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <IconX className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {uploadedFiles.map((uploadedFile, index) => (
+                <div
+                  key={`new-${index}`}
+                  className="group relative aspect-square overflow-hidden rounded-xl ring-1 ring-border bg-background shadow-sm"
+                >
+                  {isImage(uploadedFile.file) ? (
+                    <img
+                      src={uploadedFile.url}
+                      alt="Uploading file"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-muted flex items-center justify-center">
+                      <IconFile className="h-7 w-7 text-muted-foreground" />
+                    </div>
+                  )}
+                  {uploadedFile.status === "uploading" && (
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2">
+                      <IconLoader2 className="h-5 w-5 text-white/90 animate-spin" />
+                      <Progress
+                        value={uploadedFile.progress}
+                        className="h-1 w-3/4"
+                      />
+                      <span className="text-[10px] tracking-wide text-white/90">
+                        {uploadedFile.progress}%
+                      </span>
+                    </div>
+                  )}
+                  {uploadedFile.status === "success" && (
+                    <div className="absolute top-2 right-2 rounded-full bg-background/90 shadow ring-1 ring-border p-1">
+                      <IconCheck className="h-4 w-4 text-green-600" />
+                    </div>
+                  )}
+                  {uploadedFile.status === "error" && (
+                    <div className="absolute inset-0 bg-red-500/15 flex items-center justify-center">
+                      <IconAlertCircle className="h-5 w-5 text-red-600" />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(index);
+                    }}
+                    disabled={disabled}
+                    className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/80 shadow ring-1 ring-border opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <IconX className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+
+              {multiple && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFileDialog();
+                  }}
+                  className="aspect-square rounded-xl ring-1 ring-dashed ring-muted-foreground/40 text-muted-foreground hover:text-foreground hover:ring-foreground/40 transition-colors flex items-center justify-center"
+                  disabled={disabled}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <IconPlus className="h-5 w-5" />
+                    <span className="text-[11px]">Add</span>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -264,117 +507,6 @@ export function FileUpload({
         className="hidden"
         disabled={disabled}
       />
-
-      {/* Existing Files (from value prop) */}
-      {value.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Current Files</Label>
-          <div className="grid gap-3">
-            {value.map((url, index) => (
-              <div
-                key={`existing-${index}`}
-                className="flex items-center gap-3 p-3 border rounded-lg"
-              >
-                {isImage(url) ? (
-                  <img
-                    src={url}
-                    alt="Uploaded file"
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                    <IconFile className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium truncate">
-                    {url.split("/").pop()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Uploaded</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <IconCheck className="h-4 w-4 text-green-600" />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onRemove) onRemove(index);
-                    }}
-                    disabled={disabled}
-                  >
-                    <IconX className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Uploaded Files */}
-      {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Uploading Files</Label>
-          <div className="grid gap-3">
-            {uploadedFiles.map((uploadedFile, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-3 border rounded-lg"
-              >
-                {isImage(uploadedFile.file) ? (
-                  <img
-                    src={uploadedFile.url}
-                    alt="Uploaded file"
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                    <IconFile className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium truncate">
-                    {uploadedFile.file.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                  {uploadedFile.status === "uploading" && (
-                    <Progress value={uploadedFile.progress} className="h-1" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {uploadedFile.status === "uploading" && (
-                    <div className="text-xs text-muted-foreground">
-                      {uploadedFile.progress}%
-                    </div>
-                  )}
-                  {uploadedFile.status === "success" && (
-                    <IconCheck className="h-4 w-4 text-green-600" />
-                  )}
-                  {uploadedFile.status === "error" && (
-                    <IconAlertCircle className="h-4 w-4 text-red-600" />
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFile(index);
-                    }}
-                    disabled={disabled}
-                  >
-                    <IconX className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

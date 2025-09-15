@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,97 +16,79 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { IconPlus } from "@tabler/icons-react";
-
-const gameCategories = ["sports", "puzzle", "arcade", "strategy", "action", "adventure"];
+import { IconPlus, IconLoader2 } from "@tabler/icons-react";
+import { GameFormData, gameSchema } from "@/lib/utils/validations";
+import { FileUpload } from "@/components/file-upload";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canPerformAction } from "@/lib/auth/client";
+import { useGameFilters } from "@/hooks/use-game-filters";
 
 interface AddGameDialogProps {
-  onAddGame: (game: {
-    url: string;
-    title: string;
-    desc: string;
-    category: string;
-    game_url: string;
-    game_icon?: string;
-    game_thumb?: string;
-    game_developer?: string;
-    game_publish_year?: number;
-    game_controls: string;
-    game: string;
-    isFeatured: boolean;
-  }) => void;
+  onAddGame: (game: GameFormData) => Promise<void>;
 }
 
 export function AddGameDialog({ onAddGame }: AddGameDialogProps) {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    url: "",
-    title: "",
-    desc: "",
-    category: "",
-    game_url: "",
-    game_icon: "",
-    game_thumb: "",
-    game_developer: "",
-    game_publish_year: "",
-    game_controls: "",
-    game: "",
-    isFeatured: false,
-    keyboardControl: false,
-    mouseControl: false,
-    touchControl: false,
-  });
+  const { filters: gameFilters } = useGameFilters();
+  const [loading, setLoading] = useState(false);
+  const { user, loading: userLoading } = useCurrentUser();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.url || !formData.title || !formData.category || !formData.game_url || !formData.game) {
-      return;
-    }
+  // Check if user can perform write action (editor or admin)
+  const canAddGame = canPerformAction(user, "write");
 
-    // Build controls JSON
-    const controls = {
-      keyboard: formData.keyboardControl,
-      mouse: formData.mouseControl,
-      touch: formData.touchControl,
-    };
-    
-    const gameData = {
-      url: formData.url,
-      title: formData.title,
-      desc: formData.desc,
-      category: formData.category,
-      game_url: formData.game_url,
-      game_icon: formData.game_icon || undefined,
-      game_thumb: formData.game_thumb || undefined,
-      game_developer: formData.game_developer || undefined,
-      game_publish_year: formData.game_publish_year ? parseInt(formData.game_publish_year) : undefined,
-      game_controls: JSON.stringify(controls),
-      game: formData.game,
-      isFeatured: formData.isFeatured,
-    };
-    
-    onAddGame(gameData);
-    setFormData({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<GameFormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(gameSchema) as any,
+    defaultValues: {
       url: "",
       title: "",
       desc: "",
       category: "",
       game_url: "",
-      game_icon: "",
-      game_thumb: "",
+      game_icon: [],
+      game_thumb: [],
       game_developer: "",
-      game_publish_year: "",
-      game_controls: "",
+      game_publish_year: undefined,
       game: "",
-      isFeatured: false,
-      keyboardControl: false,
-      mouseControl: false,
-      touchControl: false,
-    });
-    setOpen(false);
+      is_featured: false,
+      game_controls: {
+        keyboard: false,
+        mouse: false,
+        touch: false,
+      },
+    },
+  });
+
+  const onSubmit = async (data: GameFormData) => {
+    setLoading(true);
+    try {
+      await onAddGame(data);
+      reset();
+      setOpen(false);
+    } catch (error) {
+      console.error("Error adding game:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Don't render the button if user is not authorized or still loading
+  if (userLoading || !canAddGame) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -121,122 +105,223 @@ export function AddGameDialog({ onAddGame }: AddGameDialogProps) {
             Add a new game to your collection. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="url">URL Slug *</Label>
-              <Input
-                id="url"
-                placeholder="game-slug"
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                required
+              <Controller
+                name="url"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="url"
+                    placeholder="game-slug"
+                    {...field}
+                    className={errors.url ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.url && (
+                <p className="text-sm text-red-600">{errors.url.message}</p>
+              )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                placeholder="Game title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
+              <Controller
+                name="title"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="title"
+                    placeholder="Game title"
+                    {...field}
+                    className={errors.title ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.title && (
+                <p className="text-sm text-red-600">{errors.title.message}</p>
+              )}
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="desc">Description *</Label>
-            <Textarea
-              id="desc"
-              placeholder="Brief description of the game"
-              value={formData.desc}
-              onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
-              required
+            <Controller
+              name="desc"
+              control={control}
+              render={({ field }) => (
+                <Textarea
+                  id="desc"
+                  placeholder="Brief description of the game"
+                  {...field}
+                  className={errors.desc ? "border-red-500" : ""}
+                />
+              )}
             />
+            {errors.desc && (
+              <p className="text-sm text-red-600">{errors.desc.message}</p>
+            )}
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gameCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="game_url">Game URL *</Label>
-              <Input
-                id="game_url"
-                type="url"
-                placeholder="https://games.example.com/game"
-                value={formData.game_url}
-                onChange={(e) => setFormData({ ...formData, game_url: e.target.value })}
-                required
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger
+                      className={errors.category ? "border-red-500" : ""}
+                    >
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {gameFilters.categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
+              {errors.category && (
+                <p className="text-sm text-red-600">
+                  {errors.category.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="game_url">Game URL</Label>
+              <Controller
+                name="game_url"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="game_url"
+                    type="url"
+                    placeholder="https://games.example.com/game"
+                    {...field}
+                    className={errors.game_url ? "border-red-500" : ""}
+                  />
+                )}
+              />
+              {errors.game_url && (
+                <p className="text-sm text-red-600">
+                  {errors.game_url.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="game_icon">Game Icon URL</Label>
-              <Input
-                id="game_icon"
-                type="url"
-                placeholder="https://example.com/icon.jpg"
-                value={formData.game_icon}
-                onChange={(e) => setFormData({ ...formData, game_icon: e.target.value })}
+              <Controller
+                name="game_icon"
+                control={control}
+                render={({ field }) => (
+                  <FileUpload
+                    label="Game Icon"
+                    description="Upload game icon"
+                    accept="image/*"
+                    multiple={false}
+                    bucket="games"
+                    folder="icons"
+                    value={field.value}
+                    onUpload={(urls) => field.onChange(urls)}
+                    onRemove={() => field.onChange([])}
+                    className={errors.game_icon ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.game_icon && (
+                <p className="text-sm text-red-600">
+                  {errors.game_icon.message}
+                </p>
+              )}
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="game_thumb">Thumbnail URL</Label>
-              <Input
-                id="game_thumb"
-                type="url"
-                placeholder="https://example.com/thumb.jpg"
-                value={formData.game_thumb}
-                onChange={(e) => setFormData({ ...formData, game_thumb: e.target.value })}
+              <Controller
+                name="game_thumb"
+                control={control}
+                render={({ field }) => (
+                  <FileUpload
+                    label="Game Thumbnail"
+                    description="Upload game thumbnail"
+                    accept="image/*"
+                    multiple={false}
+                    bucket="games"
+                    folder="thumbnails"
+                    value={field.value}
+                    onUpload={(urls) => field.onChange(urls)}
+                    onRemove={() => field.onChange([])}
+                    className={errors.game_thumb ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.game_thumb && (
+                <p className="text-sm text-red-600">
+                  {errors.game_thumb.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="game_developer">Developer</Label>
-              <Input
-                id="game_developer"
-                placeholder="Developer name"
-                value={formData.game_developer}
-                onChange={(e) => setFormData({ ...formData, game_developer: e.target.value })}
+              <Controller
+                name="game_developer"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="game_developer"
+                    placeholder="Developer name"
+                    {...field}
+                    className={errors.game_developer ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.game_developer && (
+                <p className="text-sm text-red-600">
+                  {errors.game_developer.message}
+                </p>
+              )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="game_publish_year">Publish Year</Label>
-              <Input
-                id="game_publish_year"
-                type="number"
-                min="1900"
-                max="2030"
-                placeholder="2024"
-                value={formData.game_publish_year}
-                onChange={(e) => setFormData({ ...formData, game_publish_year: e.target.value })}
+              <Controller
+                name="game_publish_year"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="game_publish_year"
+                    type="number"
+                    min="1980"
+                    max={new Date().getFullYear()}
+                    placeholder="2024"
+                    {...field}
+                    onChange={(e) =>
+                      field.onChange(
+                        e.target.value ? parseInt(e.target.value) : undefined
+                      )
+                    }
+                    value={field.value || ""}
+                    className={errors.game_publish_year ? "border-red-500" : ""}
+                  />
+                )}
               />
+              {errors.game_publish_year && (
+                <p className="text-sm text-red-600">
+                  {errors.game_publish_year.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -244,74 +329,130 @@ export function AddGameDialog({ onAddGame }: AddGameDialogProps) {
             <Label>Game Controls</Label>
             <div className="flex gap-6">
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="keyboardControl"
-                  checked={formData.keyboardControl}
-                  onCheckedChange={(checked) => setFormData({ ...formData, keyboardControl: !!checked })}
+                <Controller
+                  name="game_controls.keyboard"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="keyboardControl"
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                  )}
                 />
-                <Label htmlFor="keyboardControl" className="text-sm font-normal">
+                <Label
+                  htmlFor="keyboardControl"
+                  className="text-sm font-normal"
+                >
                   Keyboard
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="mouseControl"
-                  checked={formData.mouseControl}
-                  onCheckedChange={(checked) => setFormData({ ...formData, mouseControl: !!checked })}
+                <Controller
+                  name="game_controls.mouse"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="mouseControl"
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                  )}
                 />
                 <Label htmlFor="mouseControl" className="text-sm font-normal">
                   Mouse
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="touchControl"
-                  checked={formData.touchControl}
-                  onCheckedChange={(checked) => setFormData({ ...formData, touchControl: !!checked })}
+                <Controller
+                  name="game_controls.touch"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="touchControl"
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(!!checked)}
+                    />
+                  )}
                 />
                 <Label htmlFor="touchControl" className="text-sm font-normal">
                   Touch
                 </Label>
               </div>
             </div>
+            {errors.game_controls && (
+              <p className="text-sm text-red-600">
+                {errors.game_controls.message}
+              </p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
-            <Label htmlFor="game">Game Embed Code *</Label>
-            <Textarea
-              id="game"
-              placeholder='<iframe src="https://games.example.com/game" width="100%" height="600"></iframe>'
-              value={formData.game}
-              onChange={(e) => setFormData({ ...formData, game: e.target.value })}
-              className="font-mono text-sm"
-              rows={3}
-              required
+            <Label htmlFor="game">Game Embed Code</Label>
+            <Controller
+              name="game"
+              control={control}
+              render={({ field }) => (
+                <Textarea
+                  id="game"
+                  placeholder='<iframe src="https://games.example.com/game" width="100%" height="600"></iframe>'
+                  {...field}
+                  className={`font-mono text-sm ${
+                    errors.game ? "border-red-500" : ""
+                  }`}
+                  rows={3}
+                />
+              )}
             />
             <p className="text-xs text-muted-foreground">
-              Enter the iframe embed code, file URL, or other game integration code.
+              Enter the iframe embed code, file URL, or other game integration
+              code.
             </p>
+            {errors.game && (
+              <p className="text-sm text-red-600">{errors.game.message}</p>
+            )}
           </div>
-          
+
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isFeatured"
-                checked={formData.isFeatured}
-                onCheckedChange={(checked) => setFormData({ ...formData, isFeatured: !!checked })}
+              <Controller
+                name="is_featured"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    id="is_featured"
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(!!checked)}
+                  />
+                )}
               />
-              <Label htmlFor="isFeatured" className="text-sm font-normal">
+              <Label htmlFor="is_featured" className="text-sm font-normal">
                 Featured game
               </Label>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button type="submit">Add Game</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Game"
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
