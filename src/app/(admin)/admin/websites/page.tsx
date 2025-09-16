@@ -387,12 +387,6 @@ export default function WebsitesPage() {
           <h1 className="text-3xl font-bold">Websites</h1>
         </div>
         <AddWebsiteDialog onAddWebsite={handleAddWebsite} />
-        {loading && (
-          <div className="flex items-center text-sm text-muted-foreground">
-            <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
-            Loading...
-          </div>
-        )}
       </div>
 
       <Card>

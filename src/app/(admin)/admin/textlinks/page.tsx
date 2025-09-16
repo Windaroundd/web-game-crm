@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -35,6 +34,8 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconX,
+  IconLink,
+  IconLoader2,
 } from "@tabler/icons-react";
 import {
   Table,
@@ -61,93 +62,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-// Mock data
-const mockWebsites = [
-  { id: 1, url: "https://example.com", title: "Example Website" },
-  { id: 2, url: "https://techblog.dev", title: "Tech Blog" },
-  { id: 3, url: "https://gamereviews.net", title: "Game Reviews" },
-];
-
-// Interface matching req.md textlinks table exactly
-interface Textlink {
-  id: number;
-  link: string; // ✅ (string, not null)
-  anchor_text: string; // ✅ (string, not null) - req.md uses snake_case
-  target: string; // ✅ (string, default '_blank')
-  rel: string; // ✅ (string, default '')
-  title: string | null; // ✅ (string, optional)
-  website_id: number | null; // ✅ (FK → websites.id, nullable)
-  custom_domain: string | null; // ✅ (string, optional)
-  show_on_all_pages: boolean; // ✅ (boolean, default true)
-  include_paths: string | null; // ✅ (string[] / text, optional)
-  exclude_paths: string | null; // ✅ (string[] / text, optional)
-  created_at: string; // ✅ (timestamptz)
-  updated_at: string; // ✅ (timestamptz)
-  websiteName?: string | null; // For display purposes
-}
-
-const mockTextlinks: Textlink[] = [
-  {
-    id: 1,
-    link: "https://targetsite.com/page1",
-    anchor_text: "Best Gaming Reviews",
-    target: "_blank",
-    rel: "nofollow",
-    title: "Gaming Reviews Site",
-    website_id: 3,
-    websiteName: "Game Reviews",
-    custom_domain: null,
-    show_on_all_pages: true,
-    include_paths: null,
-    exclude_paths: null,
-    created_at: "2024-01-15",
-    updated_at: "2024-01-15",
-  },
-  {
-    id: 2,
-    link: "https://techtools.com",
-    anchor_text: "Developer Tools",
-    target: "_blank",
-    rel: "",
-    title: "Best Developer Tools",
-    website_id: 2,
-    websiteName: "Tech Blog",
-    custom_domain: null,
-    show_on_all_pages: false,
-    include_paths: "/tools\n/resources",
-    exclude_paths: "/admin",
-    created_at: "2024-02-20",
-    updated_at: "2024-02-20",
-  },
-  {
-    id: 3,
-    link: "https://customdomain.example.com",
-    anchor_text: "Custom Domain Link",
-    target: "_self",
-    rel: "nofollow sponsored",
-    title: "Custom Domain Example",
-    website_id: null,
-    websiteName: "Tech Blog",
-    custom_domain: "custom.example.com",
-    show_on_all_pages: true,
-    include_paths: null,
-    exclude_paths: null,
-    created_at: "2024-03-01",
-    updated_at: "2024-03-01",
-  },
-];
+import { useTextlinks } from "@/hooks/use-textlinks";
+import { useWebsites } from "@/hooks/use-websites";
+import { TextlinkForm } from "@/components/textlink-form";
+import { TextlinkDetails } from "@/components/textlink-details";
+import { type TextlinkFormData } from "@/lib/utils/validations";
+import { toast } from "sonner";
 
 export default function TextlinksPage() {
-  const [textlinks, setTextlinks] = useState(mockTextlinks);
   const [selectedTextlinks, setSelectedTextlinks] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [websiteFilter, setWebsiteFilter] = useState("all");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDomain, setPreviewDomain] = useState("");
+  const [selectedTextlink, setSelectedTextlink] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -159,78 +93,84 @@ export default function TextlinksPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Form state - using exact req.md field names
-  const [formData, setFormData] = useState({
-    link: "",
-    anchor_text: "",
-    target: "_blank",
-    rel: "nofollow",
-    title: "",
-    website_id: "",
-    custom_domain: "",
-    show_on_all_pages: true,
-    include_paths: "",
-    exclude_paths: "",
+  // Loading states
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== searchTerm) return; // Don't reset during debounce
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, searchTerm]);
+
+  // API hooks
+  const { websites } = useWebsites();
+  const {
+    textlinks,
+    pagination,
+    isLoading,
+    error,
+    refetch,
+    createTextlink,
+    updateTextlink,
+    deleteTextlink,
+  } = useTextlinks({
+    search: debouncedSearchTerm,
+    website_id:
+      websiteFilter !== "all" && websiteFilter !== "custom"
+        ? parseInt(websiteFilter)
+        : undefined,
+    custom_domain: websiteFilter === "custom" ? "%" : undefined,
+    show_on_all_pages: showOnAllPagesFilter ? true : undefined,
+    sort: sortBy,
+    order: sortOrder,
+    limit: itemsPerPage,
+    page: currentPage,
   });
 
-  const filteredTextlinks = textlinks
-    .filter((textlink) => {
-      // Website filter
-      if (websiteFilter !== "all") {
-        if (websiteFilter === "custom") {
-          if (!textlink.custom_domain) return false;
-        } else {
-          if (textlink.website_id !== parseInt(websiteFilter)) return false;
-        }
-      }
-
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          textlink.anchor_text.toLowerCase().includes(searchLower) ||
-          textlink.link.toLowerCase().includes(searchLower) ||
-          (textlink.websiteName &&
-            textlink.websiteName.toLowerCase().includes(searchLower)) ||
-          (textlink.custom_domain &&
-            textlink.custom_domain.toLowerCase().includes(searchLower)) ||
-          (textlink.title && textlink.title.toLowerCase().includes(searchLower))
-        );
-      }
-
-      // Advanced filters
-      if (showOnAllPagesFilter && !textlink.show_on_all_pages) return false;
-      if (
-        targetFilter &&
-        targetFilter !== "all" &&
-        textlink.target !== targetFilter
-      )
-        return false;
-      if (relFilter && relFilter !== "all" && !textlink.rel.includes(relFilter))
-        return false;
-
-      return true;
-    })
-    .sort((a, b) => {
-      const aValue = a[sortBy as keyof typeof a];
-      const bValue = b[sortBy as keyof typeof b];
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortOrder === "desc"
-          ? bValue.localeCompare(aValue)
-          : aValue.localeCompare(bValue);
-      }
-      return sortOrder === "desc"
-        ? String(bValue).localeCompare(String(aValue))
-        : String(aValue).localeCompare(String(bValue));
-    });
-
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredTextlinks.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTextlinks = filteredTextlinks.slice(
-    startIndex,
-    startIndex + itemsPerPage
+  // Get unique websites that have textlinks
+  const websitesWithTextlinks = Array.from(
+    new Map(
+      textlinks
+        .filter((t) => t.websites)
+        .map((t) => [t.websites!.id, t.websites!])
+    ).values()
   );
+
+  // Get unique custom domains
+  const customDomains = Array.from(
+    new Set(
+      textlinks.filter((t) => t.custom_domain).map((t) => t.custom_domain!)
+    )
+  );
+
+  // Apply client-side filters that aren't handled by the API
+  const filteredTextlinks = textlinks.filter((textlink) => {
+    // Advanced filters that need client-side filtering
+    if (
+      targetFilter &&
+      targetFilter !== "all" &&
+      textlink.target !== targetFilter
+    )
+      return false;
+    if (relFilter && relFilter !== "all" && !textlink.rel.includes(relFilter))
+      return false;
+
+    return true;
+  });
+
+  // Use pagination from API
+  const totalPages = pagination.totalPages;
+  const startIndex = (pagination.page - 1) * pagination.limit;
+  const paginatedTextlinks = filteredTextlinks;
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -255,53 +195,83 @@ export default function TextlinksPage() {
     );
   };
 
-  const resetForm = () => {
-    setFormData({
-      link: "",
-      anchor_text: "",
-      target: "_blank",
-      rel: "nofollow",
-      title: "",
-      website_id: "",
-      custom_domain: "",
-      show_on_all_pages: true,
-      include_paths: "",
-      exclude_paths: "",
-    });
+  const handleAddTextlink = async (data: TextlinkFormData) => {
+    setIsSubmittingForm(true);
+    try {
+      const result = await createTextlink({
+        link: data.link,
+        anchor_text: data.anchor_text,
+        target: data.target,
+        rel: data.rel || undefined,
+        title: data.title || undefined,
+        website_id: data.website_id || undefined,
+        custom_domain: data.custom_domain || undefined,
+        show_on_all_pages: data.show_on_all_pages,
+        include_paths: data.include_paths || undefined,
+        exclude_paths: data.exclude_paths || undefined,
+      });
+
+      if (result.status === "success") {
+        toast.success("Textlink created successfully");
+        setIsAddDialogOpen(false);
+      } else {
+        toast.error(result.error || "Failed to create textlink");
+      }
+    } catch {
+      toast.error("An error occurred while creating the textlink");
+    } finally {
+      setIsSubmittingForm(false);
+    }
   };
 
-  const handleAddTextlink = () => {
-    const newTextlink: Textlink = {
-      id: Math.max(...textlinks.map((t) => t.id)) + 1,
-      link: formData.link,
-      anchor_text: formData.anchor_text,
-      target: formData.target,
-      rel: formData.rel,
-      title: formData.title || null,
-      website_id: formData.website_id ? parseInt(formData.website_id) : null,
-      custom_domain: formData.custom_domain || null,
-      show_on_all_pages: formData.show_on_all_pages,
-      include_paths: formData.include_paths || null,
-      exclude_paths: formData.exclude_paths || null,
-      created_at: new Date().toISOString().split("T")[0],
-      updated_at: new Date().toISOString().split("T")[0],
-      websiteName: formData.website_id
-        ? mockWebsites.find((w) => w.id === parseInt(formData.website_id))
-            ?.title
-        : undefined,
-    };
-    setTextlinks([...textlinks, newTextlink]);
-    setIsAddDialogOpen(false);
-    resetForm();
+  const handleEditTextlink = async (data: TextlinkFormData) => {
+    if (!selectedTextlink) return;
+
+    setIsSubmittingForm(true);
+    try {
+      const result = await updateTextlink(selectedTextlink.id, {
+        link: data.link,
+        anchor_text: data.anchor_text,
+        target: data.target,
+        rel: data.rel || undefined,
+        title: data.title || undefined,
+        website_id: data.website_id || undefined,
+        custom_domain: data.custom_domain || undefined,
+        show_on_all_pages: data.show_on_all_pages,
+        include_paths: data.include_paths || undefined,
+        exclude_paths: data.exclude_paths || undefined,
+      });
+
+      if (result.status === "success") {
+        toast.success("Textlink updated successfully");
+        setIsEditDialogOpen(false);
+        setSelectedTextlink(null);
+      } else {
+        toast.error(result.error || "Failed to update textlink");
+      }
+    } catch {
+      toast.error("An error occurred while updating the textlink");
+    } finally {
+      setIsSubmittingForm(false);
+    }
+  };
+
+  const handleViewDetails = (textlink: any) => {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
+    setSelectedTextlink(textlink);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleEditClick = (textlink: any) => {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
+    setSelectedTextlink(textlink);
+    setIsEditDialogOpen(true);
   };
 
   const generatePreviewJson = () => {
     const domainTextlinks = textlinks.filter(
       (t) =>
-        (t.websiteName &&
-          mockWebsites
-            .find((w) => w.id === t.website_id)
-            ?.url.includes(previewDomain)) ||
+        (t.websites && t.websites.url.includes(previewDomain)) ||
         t.custom_domain === previewDomain
     );
 
@@ -312,6 +282,19 @@ export default function TextlinksPage() {
       rel: t.rel,
       target: t.target,
     }));
+  };
+
+  const handleDeleteTextlink = async (id: number) => {
+    try {
+      const result = await deleteTextlink(id);
+      if (result.status === "success") {
+        toast.success("Textlink deleted successfully");
+      } else {
+        toast.error(result.error || "Failed to delete textlink");
+      }
+    } catch {
+      toast.error("An error occurred while deleting the textlink");
+    }
   };
 
   return (
@@ -385,233 +368,94 @@ export default function TextlinksPage() {
                 Add Textlink
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Textlink</DialogTitle>
                 <DialogDescription>
                   Create a new textlink for a website or custom domain
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="link">Target URL *</Label>
-                    <Input
-                      id="link"
-                      value={formData.link}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          link: e.target.value,
-                        }))
-                      }
-                      placeholder="https://example.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="anchor_text">Anchor Text *</Label>
-                    <Input
-                      id="anchor_text"
-                      value={formData.anchor_text}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          anchor_text: e.target.value,
-                        }))
-                      }
-                      placeholder="Click here"
-                    />
-                  </div>
-                </div>
+              <TextlinkForm
+                onSubmit={handleAddTextlink}
+                isLoading={isSubmittingForm}
+                submitButtonText="Add Textlink"
+                onCancel={() => setIsAddDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="target">Target</Label>
-                    <Select
-                      value={formData.target}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({ ...prev, target: value }))
-                      }
+          {/* Edit Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Textlink</DialogTitle>
+                <DialogDescription>
+                  Update the textlink details
+                </DialogDescription>
+              </DialogHeader>
+              {selectedTextlink && (
+                <TextlinkForm
+                  onSubmit={handleEditTextlink}
+                  defaultValues={{
+                    link: selectedTextlink.link,
+                    anchor_text: selectedTextlink.anchor_text,
+                    target: selectedTextlink.target,
+                    rel: selectedTextlink.rel || "",
+                    title: selectedTextlink.title || "",
+                    website_id: selectedTextlink.website_id || "",
+                    custom_domain: selectedTextlink.custom_domain || "",
+                    show_on_all_pages: selectedTextlink.show_on_all_pages,
+                    include_paths: selectedTextlink.include_paths || "",
+                    exclude_paths: selectedTextlink.exclude_paths || "",
+                  }}
+                  isLoading={isSubmittingForm}
+                  submitButtonText="Update Textlink"
+                  onCancel={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedTextlink(null);
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Details Dialog */}
+          <Dialog
+            open={isDetailsDialogOpen}
+            onOpenChange={setIsDetailsDialogOpen}
+          >
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Textlink Details</DialogTitle>
+                <DialogDescription>
+                  View detailed information about this textlink
+                </DialogDescription>
+              </DialogHeader>
+              {selectedTextlink && (
+                <div className="space-y-4">
+                  <TextlinkDetails textlink={selectedTextlink} />
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsDetailsDialogOpen(false);
+                        setSelectedTextlink(null);
+                      }}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_blank">
-                          New Window (_blank)
-                        </SelectItem>
-                        <SelectItem value="_self">
-                          Same Window (_self)
-                        </SelectItem>
-                        <SelectItem value="_parent">
-                          Parent Frame (_parent)
-                        </SelectItem>
-                        <SelectItem value="_top">Top Frame (_top)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rel">Rel Attribute</Label>
-                    <Input
-                      id="rel"
-                      value={formData.rel}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          rel: e.target.value,
-                        }))
-                      }
-                      placeholder="nofollow, sponsored, etc."
-                    />
-                  </div>
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setIsDetailsDialogOpen(false);
+                        setIsEditDialogOpen(true);
+                      }}
+                    >
+                      <IconEdit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  </DialogFooter>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title (optional)</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                    placeholder="Link title for accessibility"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Placement Target</Label>
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="website_id">Managed Website</Label>
-                      <Select
-                        value={formData.website_id}
-                        onValueChange={(value) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            website_id: value,
-                            custom_domain: "",
-                          }));
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a managed website" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockWebsites.map((website) => (
-                            <SelectItem
-                              key={website.id}
-                              value={website.id.toString()}
-                            >
-                              {website.title} ({website.url})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="text-center text-sm text-muted-foreground">
-                      OR
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="custom_domain">Custom Domain</Label>
-                      <Input
-                        id="custom_domain"
-                        value={formData.custom_domain}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            custom_domain: e.target.value,
-                            website_id: "",
-                          }))
-                        }
-                        placeholder="example.com"
-                        disabled={!!formData.website_id}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="show_on_all_pages"
-                      checked={formData.show_on_all_pages}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          show_on_all_pages: checked as boolean,
-                        }))
-                      }
-                    />
-                    <Label htmlFor="show_on_all_pages">Show on all pages</Label>
-                  </div>
-
-                  {!formData.show_on_all_pages && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="include_paths">
-                          Include Paths (optional)
-                        </Label>
-                        <Textarea
-                          id="include_paths"
-                          value={formData.include_paths}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              include_paths: e.target.value,
-                            }))
-                          }
-                          placeholder="/blog&#10;/products"
-                          className="min-h-[60px]"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          One path per line
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="exclude_paths">
-                          Exclude Paths (optional)
-                        </Label>
-                        <Textarea
-                          id="exclude_paths"
-                          value={formData.exclude_paths}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              exclude_paths: e.target.value,
-                            }))
-                          }
-                          placeholder="/admin&#10;/private"
-                          className="min-h-[60px]"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          One path per line
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAddDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAddTextlink}
-                  disabled={
-                    !formData.link ||
-                    !formData.anchor_text ||
-                    (!formData.website_id && !formData.custom_domain)
-                  }
-                >
-                  Add Textlink
-                </Button>
-              </DialogFooter>
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -703,8 +547,12 @@ export default function TextlinksPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sites</SelectItem>
-                  <SelectItem value="custom">Custom Domains</SelectItem>
-                  {mockWebsites.map((website) => (
+                  {customDomains.length > 0 && (
+                    <SelectItem value="custom">
+                      Custom Domains ({customDomains.length})
+                    </SelectItem>
+                  )}
+                  {websitesWithTextlinks.map((website) => (
                     <SelectItem key={website.id} value={website.id.toString()}>
                       {website.title}
                     </SelectItem>
@@ -883,167 +731,204 @@ export default function TextlinksPage() {
 
           {/* Data Table */}
           <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={
-                        selectedTextlinks.length ===
-                          paginatedTextlinks.length &&
-                        paginatedTextlinks.length > 0
-                      }
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Link & Text</TableHead>
-                  <TableHead>Target Site</TableHead>
-                  <TableHead>Placement</TableHead>
-                  <TableHead>Attributes</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedTextlinks.map((textlink) => (
-                  <TableRow key={textlink.id}>
-                    <TableCell>
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <IconLoader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2">Loading textlinks...</span>
+              </div>
+            )}
+            {error && (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <p className="text-sm text-red-600 mb-2">Error: {error}</p>
+                  <Button variant="outline" size="sm" onClick={refetch}>
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!isLoading && !error && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">
                       <Checkbox
-                        checked={selectedTextlinks.includes(textlink.id)}
-                        onCheckedChange={() =>
-                          handleSelectTextlink(textlink.id)
+                        checked={
+                          selectedTextlinks.length ===
+                            paginatedTextlinks.length &&
+                          paginatedTextlinks.length > 0
                         }
+                        onCheckedChange={handleSelectAll}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">
-                          {textlink.anchor_text}
-                        </div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <IconExternalLink className="h-3 w-3" />
-                          <a
-                            href={textlink.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline truncate max-w-[200px]"
-                          >
-                            {textlink.link}
-                          </a>
-                        </div>
-                        {textlink.title && (
-                          <div className="text-xs text-muted-foreground">
-                            Title: {textlink.title}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {textlink.websiteName ? (
-                          <>
-                            <IconWorld className="h-4 w-4 text-blue-500" />
-                            <Badge variant="outline">
-                              {textlink.websiteName}
-                            </Badge>
-                          </>
-                        ) : (
-                          <>
-                            <IconExternalLink className="h-4 w-4 text-green-500" />
-                            <Badge variant="secondary">
-                              {textlink.custom_domain}
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {textlink.show_on_all_pages ? (
-                          <Badge variant="default" className="text-xs">
-                            All Pages
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">
-                            Specific Pages
-                          </Badge>
-                        )}
-                        {textlink.include_paths && (
-                          <div className="text-xs text-muted-foreground">
-                            Include: {textlink.include_paths.split("\n").length}{" "}
-                            paths
-                          </div>
-                        )}
-                        {textlink.exclude_paths && (
-                          <div className="text-xs text-muted-foreground">
-                            Exclude: {textlink.exclude_paths.split("\n").length}{" "}
-                            paths
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Badge variant="outline" className="text-xs">
-                          {textlink.target}
-                        </Badge>
-                        {textlink.rel && (
-                          <div className="text-xs text-muted-foreground">
-                            rel=&quot;{textlink.rel}&quot;
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {new Date(textlink.updated_at).toLocaleDateString()}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>⋯
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>
-                            <IconEye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <IconEdit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <IconTrash className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead>Link & Text</TableHead>
+                    <TableHead>Target Site</TableHead>
+                    <TableHead>Placement</TableHead>
+                    <TableHead>Attributes</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedTextlinks.map((textlink) => (
+                    <TableRow key={textlink.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedTextlinks.includes(textlink.id)}
+                          onCheckedChange={() =>
+                            handleSelectTextlink(textlink.id)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium">
+                            {textlink.anchor_text}
+                          </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+                            <IconExternalLink className="h-3 w-3" />
+                            <a
+                              href={textlink.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline truncate max-w-[200px]"
+                            >
+                              {textlink.link}
+                            </a>
+                          </div>
+                          {textlink.title && (
+                            <div className="text-xs text-muted-foreground">
+                              Title: {textlink.title}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {textlink.websites ? (
+                            <>
+                              <IconWorld className="h-4 w-4 text-blue-500" />
+                              <Badge variant="outline">
+                                {textlink.websites.title}
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <IconExternalLink className="h-4 w-4 text-green-500" />
+                              <Badge variant="secondary">
+                                {textlink.custom_domain}
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {textlink.show_on_all_pages ? (
+                            <Badge variant="default" className="text-xs">
+                              All Pages
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              Specific Pages
+                            </Badge>
+                          )}
+                          {textlink.include_paths && (
+                            <div className="text-xs text-muted-foreground">
+                              Include:{" "}
+                              {textlink.include_paths.split("\n").length} paths
+                            </div>
+                          )}
+                          {textlink.exclude_paths && (
+                            <div className="text-xs text-muted-foreground">
+                              Exclude:{" "}
+                              {textlink.exclude_paths.split("\n").length} paths
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant="outline" className="text-xs">
+                            {textlink.target}
+                          </Badge>
+                          {textlink.rel && (
+                            <div className="text-xs text-muted-foreground">
+                              rel=&quot;{textlink.rel}&quot;
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {new Date(textlink.updated_at).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>⋯
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => handleViewDetails(textlink)}
+                            >
+                              <IconEye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleEditClick(textlink)}
+                            >
+                              <IconEdit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleDeleteTextlink(textlink.id)}
+                            >
+                              <IconTrash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {paginatedTextlinks.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="text-muted-foreground">
+                          <IconLink className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No textlinks found</p>
+                          <p className="text-sm">
+                            Try adjusting your filters or create a new textlink
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
 
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
               Showing {startIndex + 1}-
-              {Math.min(startIndex + itemsPerPage, filteredTextlinks.length)} of{" "}
-              {filteredTextlinks.length} filtered textlinks ({textlinks.length}{" "}
-              total)
+              {Math.min(startIndex + pagination.limit, pagination.total)} of{" "}
+              {pagination.total} textlinks
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={!pagination.hasPrev || isLoading}
               >
                 Previous
               </Button>
@@ -1068,6 +953,7 @@ export default function TextlinksPage() {
                       size="sm"
                       onClick={() => setCurrentPage(pageNum)}
                       className="w-8"
+                      disabled={isLoading}
                     >
                       {pageNum}
                     </Button>
@@ -1082,6 +968,7 @@ export default function TextlinksPage() {
                       size="sm"
                       onClick={() => setCurrentPage(totalPages)}
                       className="w-8"
+                      disabled={isLoading}
                     >
                       {totalPages}
                     </Button>
@@ -1093,7 +980,7 @@ export default function TextlinksPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={!pagination.hasNext || isLoading}
               >
                 Next
               </Button>

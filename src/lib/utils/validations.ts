@@ -60,22 +60,22 @@ export type GameFormData = z.infer<typeof gameSchema>;
 export const textlinkSchema = z
   .object({
     link: z.string().url("Must be a valid URL").min(1, "Link is required"),
-    anchorText: z
+    anchor_text: z
       .string()
       .min(1, "Anchor text is required")
       .max(255, "Anchor text too long"),
     target: z.enum(["_blank", "_self", "_parent", "_top"]).default("_blank"),
     rel: z.string().optional(),
     title: z.string().optional(),
-    websiteId: z.coerce.number().optional().or(z.literal("")),
-    customDomain: z.string().optional(),
-    showOnAllPages: z.boolean().default(true),
-    includePaths: z.string().optional(),
-    excludePaths: z.string().optional(),
+    website_id: z.coerce.number().optional().or(z.literal("")),
+    custom_domain: z.string().optional(),
+    show_on_all_pages: z.boolean().default(true),
+    include_paths: z.string().optional(),
+    exclude_paths: z.string().optional(),
   })
-  .refine((data) => data.websiteId || data.customDomain, {
+  .refine((data) => data.website_id || data.custom_domain, {
     message: "Either website or custom domain must be specified",
-    path: ["customDomain"],
+    path: ["custom_domain"],
   });
 
 export type TextlinkFormData = z.infer<typeof textlinkSchema>;
