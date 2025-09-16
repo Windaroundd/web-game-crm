@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/database/supabase/server";
 import { z } from "zod";
-import type { Database } from "@/lib/types/database";
 
-type Website = Database["public"]["Tables"]["websites"]["Row"];
-type WebsiteUpdate = Database["public"]["Tables"]["websites"]["Update"];
 
 // Validation schema for updates
 const updateWebsiteSchema = z.object({
@@ -116,7 +113,7 @@ export async function PUT(
     // TODO: Get user ID from session for updated_by
     const userId = null; // Replace with actual user ID from auth
 
-    const updateData: WebsiteUpdate = {
+    const updateData = {
       ...validatedData,
       updated_by: userId,
       updated_at: new Date().toISOString(),
@@ -124,7 +121,7 @@ export async function PUT(
 
     const { data: website, error } = await supabase
       .from("websites")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", websiteId)
       .select()
       .single();

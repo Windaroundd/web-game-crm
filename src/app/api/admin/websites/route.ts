@@ -3,9 +3,7 @@ import { createClient } from "@/lib/database/supabase/server";
 import { z } from "zod";
 import type { Database } from "@/lib/types/database";
 
-type Website = Database["public"]["Tables"]["websites"]["Row"];
 type WebsiteInsert = Database["public"]["Tables"]["websites"]["Insert"];
-type WebsiteUpdate = Database["public"]["Tables"]["websites"]["Update"];
 
 // Validation schemas
 const createWebsiteSchema = z.object({
@@ -23,7 +21,6 @@ const createWebsiteSchema = z.object({
   is_wp: z.boolean().default(false),
 });
 
-const updateWebsiteSchema = createWebsiteSchema.partial();
 
 const querySchema = z.object({
   category: z.string().optional(),
@@ -280,7 +277,7 @@ export async function POST(request: NextRequest) {
 
     const { data: website, error } = await supabase
       .from("websites")
-      .insert(websiteData as any)
+      .insert(websiteData as never)
       .select()
       .single();
 
