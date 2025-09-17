@@ -62,8 +62,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useTextlinks } from "@/hooks/use-textlinks";
-import { useWebsites } from "@/hooks/use-websites";
+import { useTextlinks, type TextlinkWithWebsite } from "@/hooks/use-textlinks";
 import { TextlinkForm } from "@/components/textlink-form";
 import { TextlinkDetails } from "@/components/textlink-details";
 import { type TextlinkFormData } from "@/lib/utils/validations";
@@ -81,7 +80,7 @@ export default function TextlinksPage() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDomain, setPreviewDomain] = useState("");
-  const [selectedTextlink, setSelectedTextlink] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [selectedTextlink, setSelectedTextlink] = useState<TextlinkWithWebsite | null>(null);
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -112,7 +111,6 @@ export default function TextlinksPage() {
   }, [debouncedSearchTerm, searchTerm]);
 
   // API hooks
-  const { websites } = useWebsites();
   const {
     textlinks,
     pagination,
@@ -256,14 +254,12 @@ export default function TextlinksPage() {
     }
   };
 
-  const handleViewDetails = (textlink: any) => {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  const handleViewDetails = (textlink: TextlinkWithWebsite) => {
     setSelectedTextlink(textlink);
     setIsDetailsDialogOpen(true);
   };
 
-  const handleEditClick = (textlink: any) => {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  const handleEditClick = (textlink: TextlinkWithWebsite) => {
     setSelectedTextlink(textlink);
     setIsEditDialogOpen(true);
   };
@@ -399,7 +395,7 @@ export default function TextlinksPage() {
                   defaultValues={{
                     link: selectedTextlink.link,
                     anchor_text: selectedTextlink.anchor_text,
-                    target: selectedTextlink.target,
+                    target: selectedTextlink.target as "_blank" | "_self" | "_parent" | "_top",
                     rel: selectedTextlink.rel || "",
                     title: selectedTextlink.title || "",
                     website_id: selectedTextlink.website_id || "",
