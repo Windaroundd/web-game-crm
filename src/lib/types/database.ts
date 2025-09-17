@@ -128,7 +128,9 @@ export interface Database {
           api_token: string;
           account_id: string;
           created_at: string;
+          updated_at: string;
           created_by: string | null;
+          updated_by: string | null;
         };
         Insert: {
           id?: number;
@@ -137,7 +139,9 @@ export interface Database {
           api_token: string;
           account_id: string;
           created_at?: string;
+          updated_at?: string;
           created_by?: string | null;
+          updated_by?: string | null;
         };
         Update: {
           id?: number;
@@ -146,7 +150,9 @@ export interface Database {
           api_token?: string;
           account_id?: string;
           created_at?: string;
+          updated_at?: string;
           created_by?: string | null;
+          updated_by?: string | null;
         };
       };
       cloudflare_purge_logs: {
