@@ -61,6 +61,8 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useGameFilters } from "@/hooks/use-game-filters";
 import { GameFormData } from "@/lib/utils/validations";
 import { DeleteDialog } from "@/components/delete-dialog";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canPerformAction } from "@/lib/auth/client";
 
 export default function GamesPage() {
   // Fetch dynamic filter options
@@ -268,13 +270,19 @@ export default function GamesPage() {
     }
   };
 
+  // RBAC: compute permissions
+  const { user, loading: userLoading } = useCurrentUser();
+  const canWrite = canPerformAction(user, "write"); // editor+
+
   return (
     <div className="px-4 lg:px-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Games</h1>
         </div>
-        <AddGameDialog onAddGame={handleAddGame} />
+        {!userLoading && canWrite && (
+          <AddGameDialog onAddGame={handleAddGame} />
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -608,7 +616,7 @@ export default function GamesPage() {
           </div>
 
           {/* Bulk Actions */}
-          {selectedGames.length > 0 && (
+          {!userLoading && canWrite && selectedGames.length > 0 && (
             <div className="mb-4 p-3 bg-muted rounded-lg flex items-center justify-between">
               <span className="text-sm font-medium">
                 {selectedGames.length} game
@@ -650,12 +658,14 @@ export default function GamesPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[50px]">
-                            <Checkbox
-                              checked={
-                                selectedGames.length === filteredGames.length
-                              }
-                              onCheckedChange={handleSelectAll}
-                            />
+                            {!userLoading && canWrite ? (
+                              <Checkbox
+                                checked={
+                                  selectedGames.length === filteredGames.length
+                                }
+                                onCheckedChange={handleSelectAll}
+                              />
+                            ) : null}
                           </TableHead>
                           <TableHead>Game</TableHead>
                           <TableHead>Developer</TableHead>
@@ -670,12 +680,14 @@ export default function GamesPage() {
                         {paginatedGames.map((game) => (
                           <TableRow key={game.id}>
                             <TableCell>
-                              <Checkbox
-                                checked={selectedGames.includes(game.id)}
-                                onCheckedChange={() =>
-                                  handleSelectGame(game.id)
-                                }
-                              />
+                              {!userLoading && canWrite ? (
+                                <Checkbox
+                                  checked={selectedGames.includes(game.id)}
+                                  onCheckedChange={() =>
+                                    handleSelectGame(game.id)
+                                  }
+                                />
+                              ) : null}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-3">
@@ -779,20 +791,26 @@ export default function GamesPage() {
                                     <IconEye className="mr-2 h-4 w-4" />
                                     View Details
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => setEditGame(game)}
-                                  >
-                                    <IconEdit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => setDeleteGameId(game.id)}
-                                  >
-                                    <IconTrash className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
+                                  {!userLoading && canWrite && (
+                                    <DropdownMenuItem
+                                      onClick={() => setEditGame(game)}
+                                    >
+                                      <IconEdit className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!userLoading && canWrite && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => setDeleteGameId(game.id)}
+                                      >
+                                        <IconTrash className="mr-2 h-4 w-4" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>

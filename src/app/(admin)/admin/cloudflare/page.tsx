@@ -70,17 +70,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cloudflareAccountSchema } from "@/lib/validations/cloudflare";
 import { useCloudflareAccounts } from "@/hooks/use-cloudflare-accounts";
 import { useCloudflarePurge } from "@/hooks/use-cloudflare-purge";
 import { useCloudflareLogsPurge } from "@/hooks/use-cloudflare-purge-logs";
 import type { CloudflareAccountFormData } from "@/lib/validations/cloudflare";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canPerformAction, hasRole } from "@/lib/auth/client";
 
 // Form interfaces for React Hook Form
 type AccountFormInputs = CloudflareAccountFormData;
@@ -143,6 +141,11 @@ export default function CloudflarePage() {
 
   // Ignore unused variables for now
   void refetchAccounts;
+
+  // RBAC: current user and permissions
+  const { user, loading: userLoading } = useCurrentUser();
+  const canWrite = canPerformAction(user, "write"); // editor+
+  const canDeleteAccounts = hasRole(user, "admin"); // admin only destructive on accounts/logs
 
   // Form setup for account creation/editing
   const accountForm = useForm<AccountFormInputs>({
@@ -232,7 +235,12 @@ export default function CloudflarePage() {
     }
   };
 
-  const handleEditAccount = (account: { id: number; account_name: string; email: string; account_id: string }) => {
+  const handleEditAccount = (account: {
+    id: number;
+    account_name: string;
+    email: string;
+    account_id: string;
+  }) => {
     setEditingAccount(account.id);
     accountForm.setValue("account_name", account.account_name);
     accountForm.setValue("email", account.email);
@@ -282,24 +290,35 @@ export default function CloudflarePage() {
 
   const getModeIcon = (mode: string) => {
     switch (mode) {
-      case "url": return "🔗";
-      case "hostname": return "🏠";
-      case "tag": return "🏷️";
-      case "prefix": return "📁";
-      default: return "❓";
+      case "url":
+        return "🔗";
+      case "hostname":
+        return "🏠";
+      case "tag":
+        return "🏷️";
+      case "prefix":
+        return "📁";
+      default:
+        return "❓";
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Cloudflare Management</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Cloudflare Management
+        </h1>
         <p className="text-muted-foreground">
           Manage multiple Cloudflare accounts and perform cache purge operations
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
           <TabsTrigger value="logs">Purge Logs</TabsTrigger>
@@ -315,294 +334,342 @@ export default function CloudflarePage() {
                 </CardDescription>
               </div>
               <div className="flex items-center space-x-2">
-                <Dialog open={isAddAccountOpen} onOpenChange={handleAccountDialogChange}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" onClick={handleOpenAddAccount}>
-                      <IconPlus className="h-4 w-4 mr-2" />
-                      Add Account
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingAccount ? "Edit Cloudflare Account" : "Add Cloudflare Account"}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {editingAccount
-                          ? "Update Cloudflare account details"
-                          : "Add a new Cloudflare account for cache management"}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Form {...accountForm}>
-                      <form onSubmit={accountForm.handleSubmit(onSubmitAccount)} className="space-y-4">
-                        <FormField
-                          control={accountForm.control}
-                          name="account_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="My Cloudflare Account" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={accountForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="email"
-                                  placeholder="admin@example.com"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={accountForm.control}
-                          name="api_token"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>API Token</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="password"
-                                  placeholder={editingAccount ? "Leave empty to keep current token" : "Your Cloudflare API Token"}
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                Token should have Cache Purge permissions
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={accountForm.control}
-                          name="account_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account ID</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="Your Cloudflare Account ID"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <DialogFooter>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleAccountDialogChange(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button type="submit" disabled={accountForm.formState.isSubmitting}>
-                            {accountForm.formState.isSubmitting && (
-                              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            {editingAccount ? "Update Account" : "Add Account"}
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={isPurgeDialogOpen} onOpenChange={handlePurgeDialogChange}>
-                  <DialogTrigger asChild>
-                    <Button disabled={accounts.length === 0}>
-                      <IconRefresh className="h-4 w-4 mr-2" />
-                      Purge Cache
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Purge Cache</DialogTitle>
-                      <DialogDescription>
-                        Select purge method and specify what to purge
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    {/* Show purge error */}
-                    {purgeError && (
-                      <Alert variant="destructive">
-                        <IconAlertCircle className="h-4 w-4" />
-                        <AlertTitle>Error</AlertTitle>
-                        <AlertDescription>{purgeError}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <Form {...purgeForm}>
-                      <form onSubmit={purgeForm.handleSubmit(onSubmitPurge)} className="space-y-4">
-                        <FormField
-                          control={purgeForm.control}
-                          name="cloudflare_account_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cloudflare Account</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select account" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {accounts.map((account) => (
-                                    <SelectItem
-                                      key={account.id}
-                                      value={account.id.toString()}
-                                    >
-                                      {account.account_name} ({account.email})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={purgeForm.control}
-                          name="zone_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Zone ID</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="Your Cloudflare Zone ID"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                Find this in your Cloudflare dashboard under the Overview tab
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={purgeForm.control}
-                          name="mode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Purge Method</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select purge method" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {purgeTypes.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      <div>
-                                        <div className="font-medium">{type.label}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {type.description}
-                                        </div>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={purgeForm.control}
-                          name="payload"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {watchedMode === "url" && "URLs (one per line)"}
-                                {watchedMode === "hostname" && "Hostnames (one per line)"}
-                                {watchedMode === "tag" && "Cache Tags (one per line)"}
-                                {watchedMode === "prefix" && "URL Prefixes (one per line)"}
-                              </FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder={
-                                    watchedMode === "url"
-                                      ? "https://example.com/style.css\\nhttps://example.com/script.js"
-                                      : watchedMode === "hostname"
-                                      ? "cdn.example.com\\nassets.example.com"
-                                      : watchedMode === "tag"
-                                      ? "product-images\\nhomepage"
-                                      : "https://example.com/static/\\nhttps://example.com/uploads/"
-                                  }
-                                  className="min-h-[100px]"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        {watchedMode === "url" && (
+                {!userLoading && canWrite && (
+                  <Dialog
+                    open={isAddAccountOpen}
+                    onOpenChange={handleAccountDialogChange}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="outline" onClick={handleOpenAddAccount}>
+                        <IconPlus className="h-4 w-4 mr-2" />
+                        Add Account
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>
+                          {editingAccount
+                            ? "Edit Cloudflare Account"
+                            : "Add Cloudflare Account"}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {editingAccount
+                            ? "Update Cloudflare account details"
+                            : "Add a new Cloudflare account for cache management"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...accountForm}>
+                        <form
+                          onSubmit={accountForm.handleSubmit(onSubmitAccount)}
+                          className="space-y-4"
+                        >
                           <FormField
-                            control={purgeForm.control}
-                            name="exclusions"
+                            control={accountForm.control}
+                            name="account_name"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Single-file Exclusions (optional)</FormLabel>
+                                <FormLabel>Account Name</FormLabel>
                                 <FormControl>
-                                  <Textarea
-                                    placeholder="https://example.com/important.css\\nhttps://example.com/critical.js"
-                                    className="min-h-[60px]"
+                                  <Input
+                                    placeholder="My Cloudflare Account"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={accountForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="email"
+                                    placeholder="admin@example.com"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={accountForm.control}
+                            name="api_token"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>API Token</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="password"
+                                    placeholder={
+                                      editingAccount
+                                        ? "Leave empty to keep current token"
+                                        : "Your Cloudflare API Token"
+                                    }
                                     {...field}
                                   />
                                 </FormControl>
                                 <FormDescription>
-                                  Files to exclude from purge (one per line)
+                                  Token should have Cache Purge permissions
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                        )}
 
-                        <DialogFooter>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handlePurgeDialogChange(false)}
-                            disabled={isPurging}
-                          >
-                            Cancel
-                          </Button>
-                          <Button type="submit" disabled={isPurging}>
-                            {isPurging && (
-                              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <FormField
+                            control={accountForm.control}
+                            name="account_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Account ID</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Your Cloudflare Account ID"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
                             )}
-                            Purge Cache
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
+                          />
+
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleAccountDialogChange(false)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="submit"
+                              disabled={accountForm.formState.isSubmitting}
+                            >
+                              {accountForm.formState.isSubmitting && (
+                                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                              {editingAccount
+                                ? "Update Account"
+                                : "Add Account"}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+
+                {!userLoading && canWrite && (
+                  <Dialog
+                    open={isPurgeDialogOpen}
+                    onOpenChange={handlePurgeDialogChange}
+                  >
+                    <DialogTrigger asChild>
+                      <Button disabled={accounts.length === 0}>
+                        <IconRefresh className="h-4 w-4 mr-2" />
+                        Purge Cache
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Purge Cache</DialogTitle>
+                        <DialogDescription>
+                          Select purge method and specify what to purge
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {/* Show purge error */}
+                      {purgeError && (
+                        <Alert variant="destructive">
+                          <IconAlertCircle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{purgeError}</AlertDescription>
+                        </Alert>
+                      )}
+
+                      <Form {...purgeForm}>
+                        <form
+                          onSubmit={purgeForm.handleSubmit(onSubmitPurge)}
+                          className="space-y-4"
+                        >
+                          <FormField
+                            control={purgeForm.control}
+                            name="cloudflare_account_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Cloudflare Account</FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select account" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {accounts.map((account) => (
+                                      <SelectItem
+                                        key={account.id}
+                                        value={account.id.toString()}
+                                      >
+                                        {account.account_name} ({account.email})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={purgeForm.control}
+                            name="zone_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Zone ID</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Your Cloudflare Zone ID"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Find this in your Cloudflare dashboard under
+                                  the Overview tab
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={purgeForm.control}
+                            name="mode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Purge Method</FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select purge method" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {purgeTypes.map((type) => (
+                                      <SelectItem
+                                        key={type.value}
+                                        value={type.value}
+                                      >
+                                        <div>
+                                          <div className="font-medium">
+                                            {type.label}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {type.description}
+                                          </div>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={purgeForm.control}
+                            name="payload"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {watchedMode === "url" &&
+                                    "URLs (one per line)"}
+                                  {watchedMode === "hostname" &&
+                                    "Hostnames (one per line)"}
+                                  {watchedMode === "tag" &&
+                                    "Cache Tags (one per line)"}
+                                  {watchedMode === "prefix" &&
+                                    "URL Prefixes (one per line)"}
+                                </FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder={
+                                      watchedMode === "url"
+                                        ? "https://example.com/style.css\\nhttps://example.com/script.js"
+                                        : watchedMode === "hostname"
+                                        ? "cdn.example.com\\nassets.example.com"
+                                        : watchedMode === "tag"
+                                        ? "product-images\\nhomepage"
+                                        : "https://example.com/static/\\nhttps://example.com/uploads/"
+                                    }
+                                    className="min-h-[100px]"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {watchedMode === "url" && (
+                            <FormField
+                              control={purgeForm.control}
+                              name="exclusions"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    Single-file Exclusions (optional)
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder="https://example.com/important.css\\nhttps://example.com/critical.js"
+                                      className="min-h-[60px]"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Files to exclude from purge (one per line)
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
+
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handlePurgeDialogChange(false)}
+                              disabled={isPurging}
+                            >
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={isPurging}>
+                              {isPurging && (
+                                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                              Purge Cache
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -638,8 +705,12 @@ export default function CloudflarePage() {
                     <TableBody>
                       {accounts.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            No Cloudflare accounts found. Add your first account to get started.
+                          <TableCell
+                            colSpan={6}
+                            className="text-center py-8 text-muted-foreground"
+                          >
+                            No Cloudflare accounts found. Add your first account
+                            to get started.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -661,35 +732,62 @@ export default function CloudflarePage() {
                               <Badge variant="default">Active</Badge>
                             </TableCell>
                             <TableCell>
-                              {new Date(account.created_at).toLocaleDateString()}
+                              {new Date(
+                                account.created_at
+                              ).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>⋯
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => handleEditAccount(account)}>
-                                    <IconEdit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <IconSettings className="mr-2 h-4 w-4" />
-                                    Test Connection
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleDeleteAccount(account.id)}
-                                  >
-                                    <IconTrash className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              {!userLoading &&
+                              (canWrite || canDeleteAccounts) ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <span className="sr-only">Open menu</span>
+                                      ⋯
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>
+                                      Actions
+                                    </DropdownMenuLabel>
+                                    {canWrite && (
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          handleEditAccount(account)
+                                        }
+                                      >
+                                        <IconEdit className="mr-2 h-4 w-4" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canWrite && (
+                                      <DropdownMenuItem>
+                                        <IconSettings className="mr-2 h-4 w-4" />
+                                        Test Connection
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canDeleteAccounts && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() =>
+                                            handleDeleteAccount(account.id)
+                                          }
+                                        >
+                                          <IconTrash className="mr-2 h-4 w-4" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))
@@ -736,8 +834,12 @@ export default function CloudflarePage() {
                     <TableBody>
                       {purgeLogs.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                            No purge logs found. Perform your first cache purge to see logs here.
+                          <TableCell
+                            colSpan={7}
+                            className="text-center py-8 text-muted-foreground"
+                          >
+                            No purge logs found. Perform your first cache purge
+                            to see logs here.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -746,13 +848,21 @@ export default function CloudflarePage() {
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <IconClock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-sm">{new Date(log.created_at).toLocaleString()}</span>
+                                <span className="text-sm">
+                                  {new Date(log.created_at).toLocaleString()}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <IconCloud className="h-4 w-4 text-orange-500" />
-                                {(log as { cloudflare_accounts?: { account_name: string } }).cloudflare_accounts?.account_name || 'N/A'}
+                                {(
+                                  log as {
+                                    cloudflare_accounts?: {
+                                      account_name: string;
+                                    };
+                                  }
+                                ).cloudflare_accounts?.account_name || "N/A"}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -780,7 +890,9 @@ export default function CloudflarePage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <code className="text-xs">{JSON.stringify(log.payload)}</code>
+                                  <code className="text-xs">
+                                    {JSON.stringify(log.payload)}
+                                  </code>
                                 )}
                               </div>
                             </TableCell>
@@ -797,12 +909,17 @@ export default function CloudflarePage() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <span className="text-sm">{log.created_by || 'N/A'}</span>
+                              <span className="text-sm">
+                                {log.created_by || "N/A"}
+                              </span>
                             </TableCell>
                             <TableCell>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <Button
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                  >
                                     <span className="sr-only">Open menu</span>⋯
                                   </Button>
                                 </DropdownMenuTrigger>

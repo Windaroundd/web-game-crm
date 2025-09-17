@@ -63,6 +63,8 @@ import {
   type WebsiteFormData,
   type WebsiteFilterData,
 } from "@/lib/validations/website";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canPerformAction } from "@/lib/auth/client";
 
 type Website = Database["public"]["Tables"]["websites"]["Row"];
 
@@ -380,13 +382,19 @@ export default function WebsitesPage() {
     setIsEditDialogOpen(true);
   };
 
+  // RBAC: compute permissions
+  const { user, loading: userLoading } = useCurrentUser();
+  const canWrite = canPerformAction(user, "write"); // editor+
+
   return (
     <div className="px-4 lg:px-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Websites</h1>
         </div>
-        <AddWebsiteDialog onAddWebsite={handleAddWebsite} />
+        {!userLoading && canWrite && (
+          <AddWebsiteDialog onAddWebsite={handleAddWebsite} />
+        )}
       </div>
 
       <Card>
@@ -663,7 +671,7 @@ export default function WebsitesPage() {
           </div>
 
           {/* Bulk Actions */}
-          {selectedWebsites.length > 0 && (
+          {!userLoading && canWrite && selectedWebsites.length > 0 && (
             <div className="mb-4 p-3 bg-muted rounded-lg flex items-center justify-between">
               <span className="text-sm font-medium">
                 {selectedWebsites.length} website
@@ -688,13 +696,15 @@ export default function WebsitesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={
-                        selectedWebsites.length === websites.length &&
-                        websites.length > 0
-                      }
-                      onCheckedChange={handleSelectAll}
-                    />
+                    {!userLoading && canWrite ? (
+                      <Checkbox
+                        checked={
+                          selectedWebsites.length === websites.length &&
+                          websites.length > 0
+                        }
+                        onCheckedChange={handleSelectAll}
+                      />
+                    ) : null}
                   </TableHead>
                   <TableHead>Website</TableHead>
                   <TableHead>Category</TableHead>
@@ -726,12 +736,14 @@ export default function WebsitesPage() {
                   websites.map((website) => (
                     <TableRow key={website.id}>
                       <TableCell>
-                        <Checkbox
-                          checked={selectedWebsites.includes(website.id)}
-                          onCheckedChange={() =>
-                            handleSelectWebsite(website.id)
-                          }
-                        />
+                        {!userLoading && canWrite ? (
+                          <Checkbox
+                            checked={selectedWebsites.includes(website.id)}
+                            onCheckedChange={() =>
+                              handleSelectWebsite(website.id)
+                            }
+                          />
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         <div>
@@ -809,20 +821,26 @@ export default function WebsitesPage() {
                               <IconEye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleOpenEditDialog(website)}
-                            >
-                              <IconEdit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => setDeleteWebsiteId(website.id)}
-                            >
-                              <IconTrash className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {!userLoading && canWrite && (
+                              <DropdownMenuItem
+                                onClick={() => handleOpenEditDialog(website)}
+                              >
+                                <IconEdit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {!userLoading && canWrite && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => setDeleteWebsiteId(website.id)}
+                                >
+                                  <IconTrash className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

@@ -67,6 +67,8 @@ import { TextlinkForm } from "@/components/textlink-form";
 import { TextlinkDetails } from "@/components/textlink-details";
 import { type TextlinkFormData } from "@/lib/utils/validations";
 import { toast } from "sonner";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canPerformAction, hasRole } from "@/lib/auth/client";
 
 export default function TextlinksPage() {
   const [selectedTextlinks, setSelectedTextlinks] = useState<number[]>([]);
@@ -80,7 +82,8 @@ export default function TextlinksPage() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDomain, setPreviewDomain] = useState("");
-  const [selectedTextlink, setSelectedTextlink] = useState<TextlinkWithWebsite | null>(null);
+  const [selectedTextlink, setSelectedTextlink] =
+    useState<TextlinkWithWebsite | null>(null);
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -94,6 +97,10 @@ export default function TextlinksPage() {
 
   // Loading states
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  // RBAC: compute permissions
+  const { user, loading: userLoading } = useCurrentUser();
+  const canWrite = canPerformAction(user, "write"); // editor+
+  const canDeleteLogs = hasRole(user, "admin"); // destructive deletes on logs -> admin only
 
   // Debounce search term
   useEffect(() => {
@@ -357,63 +364,71 @@ export default function TextlinksPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <IconPlus className="h-4 w-4 mr-2" />
-                Add Textlink
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Textlink</DialogTitle>
-                <DialogDescription>
-                  Create a new textlink for a website or custom domain
-                </DialogDescription>
-              </DialogHeader>
-              <TextlinkForm
-                onSubmit={handleAddTextlink}
-                isLoading={isSubmittingForm}
-                submitButtonText="Add Textlink"
-                onCancel={() => setIsAddDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+          {!userLoading && canWrite && (
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <IconPlus className="h-4 w-4 mr-2" />
+                  Add Textlink
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add New Textlink</DialogTitle>
+                  <DialogDescription>
+                    Create a new textlink for a website or custom domain
+                  </DialogDescription>
+                </DialogHeader>
+                <TextlinkForm
+                  onSubmit={handleAddTextlink}
+                  isLoading={isSubmittingForm}
+                  submitButtonText="Add Textlink"
+                  onCancel={() => setIsAddDialogOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* Edit Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Edit Textlink</DialogTitle>
-                <DialogDescription>
-                  Update the textlink details
-                </DialogDescription>
-              </DialogHeader>
-              {selectedTextlink && (
-                <TextlinkForm
-                  onSubmit={handleEditTextlink}
-                  defaultValues={{
-                    link: selectedTextlink.link,
-                    anchor_text: selectedTextlink.anchor_text,
-                    target: selectedTextlink.target as "_blank" | "_self" | "_parent" | "_top",
-                    rel: selectedTextlink.rel || "",
-                    title: selectedTextlink.title || "",
-                    website_id: selectedTextlink.website_id || "",
-                    custom_domain: selectedTextlink.custom_domain || "",
-                    show_on_all_pages: selectedTextlink.show_on_all_pages,
-                    include_paths: selectedTextlink.include_paths || "",
-                    exclude_paths: selectedTextlink.exclude_paths || "",
-                  }}
-                  isLoading={isSubmittingForm}
-                  submitButtonText="Update Textlink"
-                  onCancel={() => {
-                    setIsEditDialogOpen(false);
-                    setSelectedTextlink(null);
-                  }}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+          {!userLoading && canWrite && (
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Textlink</DialogTitle>
+                  <DialogDescription>
+                    Update the textlink details
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedTextlink && (
+                  <TextlinkForm
+                    onSubmit={handleEditTextlink}
+                    defaultValues={{
+                      link: selectedTextlink.link,
+                      anchor_text: selectedTextlink.anchor_text,
+                      target: selectedTextlink.target as
+                        | "_blank"
+                        | "_self"
+                        | "_parent"
+                        | "_top",
+                      rel: selectedTextlink.rel || "",
+                      title: selectedTextlink.title || "",
+                      website_id: selectedTextlink.website_id || "",
+                      custom_domain: selectedTextlink.custom_domain || "",
+                      show_on_all_pages: selectedTextlink.show_on_all_pages,
+                      include_paths: selectedTextlink.include_paths || "",
+                      exclude_paths: selectedTextlink.exclude_paths || "",
+                    }}
+                    isLoading={isSubmittingForm}
+                    submitButtonText="Update Textlink"
+                    onCancel={() => {
+                      setIsEditDialogOpen(false);
+                      setSelectedTextlink(null);
+                    }}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* Details Dialog */}
           <Dialog
@@ -440,15 +455,17 @@ export default function TextlinksPage() {
                     >
                       Close
                     </Button>
-                    <Button
-                      onClick={() => {
-                        setIsDetailsDialogOpen(false);
-                        setIsEditDialogOpen(true);
-                      }}
-                    >
-                      <IconEdit className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
+                    {!userLoading && canWrite && (
+                      <Button
+                        onClick={() => {
+                          setIsDetailsDialogOpen(false);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <IconEdit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
                   </DialogFooter>
                 </div>
               )}
@@ -706,7 +723,7 @@ export default function TextlinksPage() {
           </div>
 
           {/* Bulk Actions */}
-          {selectedTextlinks.length > 0 && (
+          {!userLoading && canWrite && selectedTextlinks.length > 0 && (
             <div className="mb-4 p-3 bg-muted rounded-lg flex items-center justify-between">
               <span className="text-sm font-medium">
                 {selectedTextlinks.length} textlink
@@ -748,14 +765,16 @@ export default function TextlinksPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px]">
-                      <Checkbox
-                        checked={
-                          selectedTextlinks.length ===
-                            paginatedTextlinks.length &&
-                          paginatedTextlinks.length > 0
-                        }
-                        onCheckedChange={handleSelectAll}
-                      />
+                      {!userLoading && canWrite ? (
+                        <Checkbox
+                          checked={
+                            selectedTextlinks.length ===
+                              paginatedTextlinks.length &&
+                            paginatedTextlinks.length > 0
+                          }
+                          onCheckedChange={handleSelectAll}
+                        />
+                      ) : null}
                     </TableHead>
                     <TableHead>Link & Text</TableHead>
                     <TableHead>Target Site</TableHead>
@@ -769,12 +788,14 @@ export default function TextlinksPage() {
                   {paginatedTextlinks.map((textlink) => (
                     <TableRow key={textlink.id}>
                       <TableCell>
-                        <Checkbox
-                          checked={selectedTextlinks.includes(textlink.id)}
-                          onCheckedChange={() =>
-                            handleSelectTextlink(textlink.id)
-                          }
-                        />
+                        {!userLoading && canWrite ? (
+                          <Checkbox
+                            checked={selectedTextlinks.includes(textlink.id)}
+                            onCheckedChange={() =>
+                              handleSelectTextlink(textlink.id)
+                            }
+                          />
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
@@ -875,20 +896,28 @@ export default function TextlinksPage() {
                               <IconEye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEditClick(textlink)}
-                            >
-                              <IconEdit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleDeleteTextlink(textlink.id)}
-                            >
-                              <IconTrash className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {!userLoading && canWrite && (
+                              <DropdownMenuItem
+                                onClick={() => handleEditClick(textlink)}
+                              >
+                                <IconEdit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {!userLoading && canDeleteLogs && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() =>
+                                    handleDeleteTextlink(textlink.id)
+                                  }
+                                >
+                                  <IconTrash className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
